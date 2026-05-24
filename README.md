@@ -70,7 +70,7 @@ Alternatively, copy `memtestppc.elf` to an HFS+ partition and
 ```
 src/        — the port: head.S, ofw.{c,h}, display.{c,h}, font_vga.h,
               memtest.h, test.c, main.c, linker.ld.
-cd/         — CHRP bootinfo.txt for the bootable ISO.
+cd/         — boot script (ofboot.b) + HFS type map (hfs.map) for the ISO.
 ref/        — memtest86+ v5.01 reference source + screenshots.
 docs/       — project plan and per-session notes (docs/sessions/).
 Makefile    — cross-compile, ISO build, QEMU targets.
