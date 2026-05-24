@@ -17,9 +17,10 @@ LDFLAGS = -T src/linker.ld -nostdlib -N
 
 # Wave 0 (substrate) object set. Grows as upstream v2.00 files are ported:
 # Wave 1 test.h/config.h; Wave 2 screen_buffer/lib/random; Wave 3 init/memsize;
-# Wave 4 error/test; Wave 5 main (replaces the smoke-test stub). See
+# Wave 4 error/test; Wave 5 main (replaces the smoke-test stub); Wave 6
+# config/patn (config menu + BadRAM patterns). See
 # docs/sessions/006-port-fidelity-restructure/HANDOFF.md.
-OBJS = src/head.o src/ofw.o src/display.o src/lib.o src/screen_buffer.o src/random.o src/init.o src/memsize.o src/error.o src/test.o src/main.o
+OBJS = src/head.o src/ofw.o src/display.o src/lib.o src/screen_buffer.o src/random.o src/init.o src/memsize.o src/error.o src/test.o src/config.o src/patn.o src/main.o
 
 all: memtestppc.elf memtestppc.bin
 
@@ -57,6 +58,13 @@ src/error.o: src/error.c src/test.h src/display.h src/ofw.h src/ppc.h src/config
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/test.o: src/test.c src/test.h src/ppc.h src/ofw.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Wave 6: config menu (neutral subset + adj_mem) and BadRAM pattern table.
+src/config.o: src/config.c src/test.h src/screen_buffer.h src/config.h src/ofw.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+src/patn.o: src/patn.c src/test.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Ported v2.00 main.c: tseq[], do_test loop, find_ticks, flat in-place paging.

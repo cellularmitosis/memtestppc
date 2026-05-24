@@ -60,14 +60,16 @@ writes a per-file report into this session dir.
    milestone, but the decision is "surface these," recorded now.
 
 ## Open questions parked for later
-- **Footer honesty:** v2.00's verbatim `footer()` advertises `(c)configuration`
-  and scroll-lock. If kept verbatim we should eventually wire up `c` + scroll-lock
-  (ties to #6) or those keys are advertised-but-dead. Decide when porting
-  `init.c`/`lib.c`.
-- **Relocation (`reloc.c`):** upstream relocates itself to test the RAM it runs
-  from. The OF port claims memory in place instead; decide whether to port/stub
-  reloc when we reach it.
-- **Bit-fade `sleep()`:** needs a timebase delay (was stubbed in the old port).
+- **Footer honesty:** ✅ RESOLVED in Wave 6. `check_input` now wires `c`→
+  `get_config` (works), `^L`→redraw, and SP/CR→scroll-lock toggle (`slock` flips
+  + footer shows `LOCKED`). Remaining nit: `scroll()` does not yet *gate* on
+  `slock`, so scroll-lock shows the indicator but doesn't actually pause the
+  scroll — minor polish (see RESUME #2).
+- **Relocation (`reloc.c`):** ✅ RESOLVED — examined and parked N/A
+  (`examine-reloc_c.md`); we test in place, non-PIC, no self-reloc.
+- **Bit-fade `sleep()`:** ✅ RESOLVED in Wave 4 — `sleep()` uses the OF timebase
+  (`port-test_c.md`). Note bit-fade (tseq idx 9) only runs when selected
+  (DEFTESTS=9), so its ~90-min dwell never occurs in a default pass.
 
 ## Workflow for this effort (see PORTING-GUIDE.md for the full contract)
 - Files are ported in **dependency waves** (substrate → headers → display/string →
@@ -119,18 +121,22 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 | main.c | ✅ | report `port-main_c.md`. tseq[] verbatim; do_test + switch(pat) + find_ticks/find_ticks_for_test/compute_segments verbatim. **The one structural change:** x86 self-relocation loop → in-place `for(;;) do_test()` in main() (head.S calls main; do_test returns instead of run_at). windows[] 32-entry PAE table → single flat window {0,0xffffffff} clamped to plim_*; run_at/__run_at/parse_command_line #if 0'd. Flat paging defined here (map_page/mapping/emapping/page_of/paging_off = upstream FLAT==1 branch; init.c's x86 PAE versions stay #if 0'd). adj_mem + insertaddress = Wave-6 stubs. **Default pass runs tests 0-8 only (DEFTESTS=9) — bit_fade (idx 9) NOT run unless selected, so the 90-min dwell does not occur in a normal run.** |
 | reloc.c | 🅿 | report `examine-reloc_c.md`. x86 ELF self-relocation runtime (`_dl_start`, R_386_* relocs, %ebx GOT asm). N/A: PPC head.S calls main() directly, OF maps the ELF at link addr, non-PIC build, no self-reloc. NOT imported into src/ (wouldn't compile on PPC; no caller). |
 
-### Wave 6 — examine PC-platform files (import → report → classify)
-| controller.c/.h | ☐ | x86 chipset/mem-controller; expect ⛔ |
-| dmi.c/.h | ☐ | SMBIOS; ⛔ |
-| spd.c | ☐ | DIMM SPD over SMBus; ⛔ |
-| pci.c/.h | ☐ | PCI cfg via x86 I/O; ⛔ |
-| extra.c/.h | ☐ | overclock menu; ⛔ |
-| config.c/.h | ☐ | config menu; **surface neutral subset (decision #6)** |
-| patn.c | ☐ | BadRAM patterns; examine |
-| linuxbios.c, linuxbios_tables.h | ☐ | coreboot tables; ⛔ |
-| msr.h, io.h, serial.h, stdin.h | ☐ | x86 MSR/port-IO/serial/kbd; ⛔/adapt |
-| bootsect.S, setup.S | ☐ | x86 real-mode boot; ⛔ (OF loads ELF) |
-| *.lds, mt86+_loader* | ☐ | x86 link/loader; ⛔ |
+### Wave 6 — config.c PORTED; PC-platform files examined → ⛔/parked — ✅ DONE, QEMU-verified
+| config.c | ✅ | report `port-config_c.md`. **Ported (Decision #6):** surfaced Test Selection / Address Range / Error Report Mode / Restart / Refresh Screen + popups + real `adj_mem()` (replaces main.c stub); commented PC-only (Memory Sizing/DMI/ECC/SPD/beep, `controller.h`/`dmi.h` includes). Interactive input now real over **OF stdin** (`get_key`/`getval` enabled + `ser_map`/`ascii_to_keycode`; `wait_keyup`→no-op; in lib.c); `check_input` wires `c`→`get_config` (footer honesty). **QEMU-verified: `c` opens the Settings popup with the correct neutral subset, `0` dismisses it and testing resumes** (`wave6-config-menu.png`). config.h was already ported (Wave 1). |
+| patn.c | ✅ | report `port-patn_c.md`. Imported VERBATIM — pure neutral C (BadRAM pattern table); replaces the main.c `insertaddress` stub, makes PRINTMODE_PATTERNS real. 32-bit-longword assumption is correct for elf32-powerpc. `printpatn()` is in error.c (not patn.c). |
+| controller.c/.h | ⛔ | report `examine-controller_c.md`. x86 north-bridge driver: PCI config cycles + MSRs + ~120 Intel/AMD/VIA/SiS/nVidia PCI IDs. No live callers. Shelves chipset/ECC/FSB/timings TUI fields. Not built. |
+| dmi.c/.h | ⛔ | report `examine-dmi_c.md`. Parses x86 SMBIOS via a fixed low-phys `_SM_` scan; PPC analog is the OF device tree. No live callers. (Defines its own `strlen` — would collide; revive as fresh module.) |
+| spd.c | ⛔ | report `examine-spd_c.md`. Reads DIMM SPD over the Intel-ICH SMBus via x86 port I/O + PCI. `show_spd()` never called. |
+| pci.c/.h | ⛔ | report `examine-pci_c.md`. PCI config-space via x86 ports 0xCF8/0xCFC; OF owns the PCI tree. Only ref is init.c's commented `pci_init()`. |
+| extra.c/.h | ⛔ | report `examine-extra_c.md`. Live x86 **DRAM-timing/overclock editor** (pci_conf_* + raw MMIO BARs + inline asm delay), not the CPU-temp screen expected. Out of scope. |
+| linuxbios.c, linuxbios_tables.h | ⛔ | report `examine-linuxbios_c.md`. coreboot table parse (`"LBIO"` scan → E820); replaced by `memsize_ofw()`. `query_linuxbios()` proto referenced only in init.c's commented firmware-probe block. |
+| msr.h | ⛔ | report `examine-msr_h.md`. x86 rdmsr/wrmsr/rdtsc + MSR constants; PPC uses SPRs, timing via `ppc.h` mftb. No includes in src/. |
+| io.h | ⛔ | report `examine-io_h.md`. x86 port-I/O (inb/outb) — exactly what `ofw.{c,h}` replaces (PORTING-GUIDE §4). |
+| serial.h | ⛔ | report `examine-serial_h.md`. 16550 UART map + serial-console glue; output via vga_buf/ttyprint, input via OF stdin. |
+| bootsect.S, setup.S | ⛔ | report `examine-bootsect_setup_S.md`. x86 real-mode boot/setup (BIOS int 0x13/0x10, A20, GDT, PE switch); OF `load` + `src/head.S` replace them. |
+| *.lds, mt86+_loader(.asm) | ⛔ | report `examine-lds-and-loader.md`. x86 GNU link scripts (`src/linker.ld` replaces) + DOS MZ real-mode loader. `mt86+_loader` is the assembled `.asm` binary. |
+| elf.h | 🅿 | report `examine-elf_h.md`. ELF defs; only consumer was the parked `reloc.c`; has `R_386_*` only (no `R_PPC_*`), we don't self-relocate / parse ELF at runtime. |
+| stdin.h | ⛔ | does not exist in v2.00 (a v5.01-era file) — recorded for completeness; no row needed elsewhere. |
 
 ## Progress log (newest last)
 - 2026-05-24: Session opened. Researched the v5.01 port-fidelity gap (see
@@ -223,25 +229,47 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   Evidence: `wave5-tests-cycling.png`. (A full pass is slow under QEMU TCG —
   test 4 random-pattern is iter=60 — but it progresses; full-pass timing belongs
   on real hardware.)
+- 2026-05-24: **Wave 6 done and QEMU-verified — config menu works, PC files
+  classified.** Five subagents read+classified the PC-platform files; all are
+  **⛔ N/A** with no live callers (controller/dmi/spd, pci/extra, linuxbios/msr/
+  io/serial, bootsect/setup/lds/loader/elf; reports `examine-*.md`). `stdin.h`
+  doesn't exist in v2.00. **`patn.c` ported VERBATIM** (pure neutral BadRAM
+  pattern C; replaced the main.c `insertaddress` stub). **`config.c` ported**
+  (`port-config_c.md`) per Decision #6: surfaced Test Selection / Address Range /
+  Error Report Mode / Restart / Refresh Screen + popups + the real `adj_mem()`
+  (replaced the main.c stub); commented PC-only branches (Memory Sizing/DMI/ECC/
+  SPD/beep + controller.h/dmi.h). Made the menu usable by wiring **OF-stdin
+  keyboard input** in lib.c: rewrote `get_key()` (OF stdin byte → `ascii_to_keycode`/
+  `ser_map`, both re-enabled), enabled `getval()`, made `wait_keyup()` a no-op
+  (OF has no key-up), and wired `check_input` `c`→`get_config` + SP/CR scroll-lock
+  + ^L redraw (footer honesty — closes that open question). Built clean (13
+  objects). QEMU regression: tests still cycle, `Errors: 0`. **Interactively
+  verified via QEMU `sendkey`:** `c` opens the Settings popup showing exactly the
+  neutral subset (PC-only items absent), `0` dismisses it and testing resumes
+  with the screen restored. Evidence: `wave6-config-menu.png`. (Deep getval
+  numeric entry for Address Range not exhaustively driven — best on real HW.)
 
-## Next steps — RESUME HERE (Waves 0–5 DONE + QEMU-verified; tests cycle, Errors:0)
+## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified)
 
-State on exit: the **real ported `main.c` is in place**, the engine compiles,
-links (11 objects), and **runs the full test loop in place over all claimed
-memory** — tests cycle (0→1→2→3→4 observed), progress bars/percentages are sane,
-`Errors: 0` on QEMU's good RAM. The Wave-5 reverse-pass spin is fixed. Real
-hardware (ibookg32/G5) NOT tested yet; a full pass not yet watched to completion
-(QEMU TCG is slow on the heavy tests — do it on hardware).
+State on exit: **the whole v2.00 import is complete.** Every upstream file is
+classified (ported or ⛔/parked with a report). The engine compiles, links (13
+objects), runs the full test loop in place over all claimed memory — tests cycle,
+percentages sane, `Errors: 0` — and the (c)configuration menu works (popup +
+OF-stdin keys). **Only QEMU-tested; real hardware (ibookg32/G5) NOT yet tested**,
+and a full pass not yet watched to completion (QEMU TCG is slow on the heavy
+tests — do it on hardware).
 
-1. **Wave 6 — examine PC-platform files:** #13 `config.c` (surface the neutral
-   subset per Decision #6), #14 `controller/dmi/spd/pci/extra/patn/linuxbios/msr/
-   io/serial/stdin/bootsect/setup/*.lds/mt86+_loader` (import, report, classify —
-   mostly ⛔ N/A).
-2. **Finish-up:** real-hardware test on ibookg32 (partition boot
-   `boot hd:5,memtestppc.elf` via the uranium hop) + G5 speed spot-check; resolve
+1. **Finish-up:** real-hardware test on ibookg32 (partition boot
+   `boot hd:5,memtestppc.elf` via the uranium hop) — watch a full pass complete +
+   the config menu with a real keyboard + G5 speed spot-check; resolve
    bit_fade `STIME` (90 min) + title/version question; update `README.md` +
-   `PLAN.md` (held this session — src/ is mid-rewrite, not a runnable release yet);
-   commit; version decision.
+   `PLAN.md` (held while src/ was mid-rewrite — it is now a runnable release
+   candidate, so they should be refreshed to describe the v2.00 port); version
+   decision.
+2. **Optional polish (open questions parked above):** scroll-lock actually
+   gating the scroll (currently `slock` flips + footer shows LOCKED, but `scroll()`
+   doesn't yet honor it); reloc.c stays parked; the few `test.c` TO-VERIFYs
+   (movinv32 documented-C vs asm at sval≠0; ad_err2 cast).
 
 How to build/test + the `pkill -x` gotcha: see the progress log above and
 PORTING-GUIDE §7. Per-file porting decisions: the `port-*.md` reports in this dir.

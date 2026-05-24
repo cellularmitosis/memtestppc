@@ -585,13 +585,36 @@ void set_cache(int val)
 	 * actually run uncached until HID0 control lands — flagged in the report. */
 }
 
-/* x86: get_key() polls the PS/2 keyboard controller status port (inb 0x64) and
- * data port (inb 0x60), with a serial-console fallback (serial_echo_inb of the
- * UART LSR/RX, mapped via ascii_to_keycode) — N/A on PPC/OF: there is no PS/2
- * controller and no UART, and OF owns input. Replaced by check_input()'s OF
- * stdin poll below. Commented out; its only callers (check_input, getval,
- * wait_keyup) are commented/reimplemented to match. */
-#if 0
+/* x86: get_key() polled the PS/2 controller (inb 0x64 status / inb 0x60 data)
+ * with a serial-console fallback — N/A on PPC/OF (no PS/2, no UART; OF owns
+ * input). The x86 original is preserved (#if 0) below for fidelity.
+ *
+ * PPC: read one byte from the OF stdin console (non-blocking) and map it
+ * (ASCII) to the PC keycode the config-menu code switches on, via
+ * ascii_to_keycode()/ser_map[] (re-enabled below). Returns 0 when no key is
+ * waiting — get_config()/getval() busy-poll get_key() in a loop, so a 0 just
+ * means "spin again". This is the OF-keyboard substrate that makes the
+ * (c)configuration menu (Decision #6) usable. */
+int get_key(void)
+{
+	static ofw_ihandle_t kbd_ih = 0;
+	static int kbd_init = 0;
+	unsigned char ch;
+
+	if (!kbd_init) {
+		kbd_ih = ofw_get_stdin();
+		kbd_init = 1;
+	}
+	if (kbd_ih == -1 || kbd_ih == 0) {
+		return 0;
+	}
+	if (ofw_read(kbd_ih, &ch, 1) <= 0) {
+		return 0;
+	}
+	return ascii_to_keycode((int)ch);
+}
+
+#if 0  /* x86 PS/2 original, preserved for fidelity */
 int get_key() {
 	int c;
 
@@ -662,28 +685,26 @@ void check_input(void)
 		/* ofw_reset() should not return; loop just in case. */
 		while (1) { }
 		break;
-	/* PPC: Wave-6 config-menu + scroll-lock hooks (the footer advertises
-	 * (c)configuration / (SP)scroll_lock / (CR)scroll_unlock). Wiring these
-	 * up requires get_config() (config.c, Wave 6) and a settled key story.
-	 * Left as commented stubs so the keys are not silently mis-handled now.
-	 * case 'c':
-	 * case 'C':
-	 *     get_config();
-	 *     break;
-	 * case ' ':
-	 *     slock = 1;
-	 *     footer();
-	 *     break;
-	 * case '\r':
-	 * case '\n':
-	 *     slock = 0;
-	 *     footer();
-	 *     break;
-	 * case 0x0c:
-	 *     // ^L - redraw the display
-	 *     tty_print_screen();
-	 *     break;
-	 */
+	/* PPC: the footer advertises these keys (Wave 6 wires them up — config.c
+	 * is now ported and get_key() is OF-backed). 'c' opens the config menu;
+	 * SP/CR toggle scroll-lock; ^L redraws. */
+	case 'c':
+	case 'C':
+		get_config();
+		break;
+	case ' ':
+		slock = 1;
+		footer();
+		break;
+	case '\r':
+	case '\n':
+		slock = 0;
+		footer();
+		break;
+	case 0x0c:
+		/* ^L - redraw the display */
+		tty_print_screen();
+		break;
 	default:
 		break;
 	}
@@ -733,15 +754,11 @@ void footer()
 	}
 }
 
-/* x86: getval() reads a number interactively from the config menu using
- * get_key() PS/2 scancodes (the big scancode->char switch, BS/CR handling,
- * base detection, p/g/m/k/x suffixes) — this is a Wave-6 config-menu input
- * helper. OF owns input on PPC and the OF key story for the menu is not yet
- * settled, so this is parked: commented out wholesale and flagged. The string
- * math (simple_strtoul + suffix shift) is platform-neutral and will be reused
- * when the menu is reimplemented for OF in Wave 6. test.h's prototype is left
- * in place; the only callers are config.c (Wave 6, not yet ported). */
-#if 0
+/* getval() reads a number interactively from the config menu (the Address Range
+ * limits). It busy-polls get_key() — now OF-backed — which returns PC keycodes;
+ * the keycode->char switch, BS/CR handling, base detection, and p/g/m/k/x suffix
+ * math are all platform-neutral and enabled verbatim. Reused unchanged on PPC
+ * now that get_key() is wired to the OF console (Wave 6). */
 ulong getval(int x, int y, int result_shift)
 {
 	unsigned long val;
@@ -859,7 +876,6 @@ ulong getval(int x, int y, int result_shift)
 	}
 	return val;
 }
-#endif
 
 /*
  * THE ONE KEY EDIT.
@@ -964,11 +980,12 @@ void serial_echo_print(const char *p)
 	return;
 }
 
-/* x86: ser_map[] maps ASCII -> PS/2 keycodes for the serial-console keyboard
- * emulation used by ascii_to_keycode() (consumed by get_key()) — N/A on PPC/OF
- * (no serial console, OF owns input). Commented out with get_key()/
- * ascii_to_keycode(). */
-#if 0
+/* ser_map[] maps an input ASCII byte to the PC keycode the menu/getval switches
+ * on; ascii_to_keycode() looks it up. Upstream this served the x86 serial-console
+ * keyboard emulation; on PPC it is exactly what we need to turn OF stdin (which
+ * delivers ASCII) into the keycodes get_config()/getval() expect — so it is
+ * ENABLED on PPC (the substrate that makes get_key() work over the OF console).
+ * Pure data + a linear lookup, platform-neutral. */
 /* Except for multi-character key sequences this mapping
  * table is complete.  So it should not need to be updated
  * when new keys are searched for.  However the key handling
@@ -1144,6 +1161,16 @@ int ascii_to_keycode (int in)
  * finger off of a key.  It is a noop if you are using a
  * serial console.
  */
+/* PPC: the OF stdin console (like the x86 serial console) delivers key-DOWN
+ * bytes only — there is no key-up event to wait for. So this is a no-op, exactly
+ * as upstream short-circuited for serial_cons. (The x86 PS/2 version below
+ * busy-waited for the 0x80 key-release scancode, which would loop forever on OF
+ * — never re-enable it as-is.) */
+void wait_keyup(void)
+{
+}
+
+#if 0  /* x86 PS/2 original — waits for the 0x80 key-release scancode */
 void wait_keyup( void ) {
 	/* Check to see if someone lifted the keyboard key */
 	while (1) {

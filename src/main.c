@@ -190,27 +190,9 @@ void paging_off(void)
 	/* flat: nothing to disable (no PAE window active) */
 }
 
-/* x86: adj_mem() (config.c, Wave 6) re-derives v->selected_pages / plim_* from
- * the address-range selection. mem_size() (memsize.c) calls it, and it is also
- * reachable from the config menu. Until config.c lands it is a no-op: memsize.c
- * already set selected_pages = test_pages (the whole map), which is exactly what
- * adj_mem() computes when no range restriction is in effect. */
-void adj_mem(void)
-{
-	/* Wave-6 stub — config.c will provide the real address-range logic. */
-}
-
-/* x86: insertaddress() records a failing address into the BadRAM pattern table
- * (patn.c) for the PRINTMODE_PATTERNS "badram=" dump; error.c's common_err()
- * calls it. patn.c is a Wave-6 file, and the default print mode is
- * PRINTMODE_ADDRESSES (set in init.c), so this path is not taken in a normal
- * run. Stub returning 0 (no pattern recorded) keeps the link resolved until
- * patn.c lands. */
-int insertaddress(ulong addr)
-{
-	(void)addr;
-	return 0;
-}
+/* Wave-5 had no-op stubs here for adj_mem() (config.c) and insertaddress()
+ * (patn.c). Both are now provided by their real ported modules (Wave 6), so the
+ * stubs are removed: adj_mem() lives in config.c, insertaddress() in patn.c. */
 
 /* x86: self-relocation + boot-protocol command line.
  *  - __run_at()/run_at() memmove() the whole image to a new address and jump to
