@@ -1,17 +1,18 @@
 /*
- * WAVE 3 CHECKPOINT STUB — throwaway. Replaced by the real ported memtest86+
+ * WAVE 4 CHECKPOINT STUB — throwaway. Replaced by the real ported memtest86+
  * v2.00 main.c in Wave 5.
  *
- * Purpose: prove init.c (verbatim TUI header + PPC CPU/cache/clock detection)
- * and memsize.c (OF /memory discovery + 1MB-chunk claim) render a real boot
- * screen. init() does it all — it calls mem_size() itself (init.c:223), zeroes
- * tseq[].errors, and calls find_ticks() — so main() just calls init().
+ * Purpose: prove the test engine + error reporting link and that error.c's
+ * PRINTMODE_ADDRESSES error table renders (white-on-red rows) — the M1 headline.
+ * It draws the boot screen via init(), then injects a few fake errors via the
+ * verbatim error() path (common_err -> the scrolling Tst/Pass/Failing-Address
+ * table + print_err_counts' 0x47 red fill -> fb_render_cell).
  *
  * Provides globals/functions owned by later waves so the checkpoint links:
- *   v          - struct vars (real def comes with main.c, Wave 5)
- *   tseq[]     - the test table (owned by main.c, Wave 5) — real v2.00 entries
- *   find_ticks - owned by main.c (Wave 5); stubbed (tick bars stay 0)
- *   adj_mem    - owned by config.c (Wave 6); stubbed (mem_size calls it)
+ *   v, tseq[], bail, segs, test, nticks, test_ticks, beepmode - main.c (Wave 5)
+ *   find_ticks                                                 - main.c (Wave 5)
+ *   adj_mem                                                    - config.c (Wave 6)
+ *   page_of / insertaddress                                    - real defs later
  */
 
 #include "test.h"
@@ -20,6 +21,15 @@
 
 struct vars variables;
 struct vars * const v = &variables;
+volatile int bail;
+volatile int segs;
+volatile int test;
+int nticks, test_ticks;
+/* (beepmode is defined by init.c) */
+
+/* Test-pattern globals referenced by test.c (defined in main.c upstream). */
+volatile ulong *p = 0;
+ulong p1 = 0, p2 = 0, p0 = 0;
 
 /* Real v2.00 test table {cache, pat, iter, ticks, errors, msg}. */
 struct tseq tseq[] = {
@@ -36,12 +46,29 @@ struct tseq tseq[] = {
     {0,  0,  0,    0, 0, 0}
 };
 
-void find_ticks(void) { /* Wave-5 stub: leave tick counters at 0 */ }
-void adj_mem(void) { /* Wave-6 stub: mem_size() already set selected_pages */ }
+void find_ticks(void) { /* Wave-5 stub */ }
+void adj_mem(void) { /* Wave-6 stub */ }
+unsigned long page_of(void *ptr) { return ((unsigned long)ptr) >> 12; }
+int insertaddress(ulong a) { (void)a; return 0; }
 
 int main(void)
 {
-    init();          /* fb_init + verbatim TUI + PPC cpu/cache + mem_size() */
+    init();                 /* fb_init + verbatim TUI + PPC cpu/cache + mem_size() */
+
+    /* set_defaults() does this in Wave 5; init just enough error state here. */
+    v->printmode = PRINTMODE_ADDRESSES;
+    v->msg_line = LINE_SCROLL - 1;
+    v->ecount = 0;
+    v->pass = 0;
+    v->erri.hdr_flag = 0;
+    test = 0;
+
+    /* Inject fake errors to verify the error table + white-on-red rows. */
+    error((ulong *)0x00100000, 0x00000000, 0x00000010);
+    error((ulong *)0x00100040, 0xffffffff, 0xfffffffd);
+    error((ulong *)0x02000000, 0xaaaaaaaa, 0xaabaaaaa);
+    error((ulong *)0x07ffff00, 0x12345678, 0x12345679);
+
     for (;;) ;
     return 0;
 }

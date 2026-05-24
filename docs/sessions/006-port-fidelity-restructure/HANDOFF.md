@@ -111,9 +111,9 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 | init.c | ✅ | report `port-init_c.md`. Verbatim v2.00 TUI; title `Memtest86`→`Memtestppc` (+ moved col15→16); CPU id via `mfpvr`+`ppc_cpu_names[]`, clock/cache from OF /cpus props; x86 cpuid/cpuspeed/memspeed/PAE-paging/chipset/DMI/SPD/pci/floppy all commented; `display_init()` calls `fb_init()` first; `display_refresh()` added (PPC) for attr-only cells. Compile bug found+fixed by lead: a comment containing `*/` (`st_*/end_*`) closed early. |
 | memsize.c | ✅ | report `port-memsize_c.md`. `mem_size()` skeleton + post-proc kept; body→OF `/memory` reg + `ofw_claim` 1MB chunks (prints "OFW Map"). Sets pmap/msegs/test_pages/selected_pages/reserved_pages/plim_* (all 4K-page units). Skips low 8MB. |
 
-### Wave 4 — error + tests
-| error.c | ☐ | common_err + print modes + error table; comment SMP/DMI/ECC |
-| test.c | ☐ | test routines; x86 asm→C; drop cpu param |
+### Wave 4 — error + tests — ✅ DONE, QEMU-verified (error table white-on-red)
+| error.c | ✅ | report `port-error_c.md`. error/ad_err1/ad_err2/common_err + all print modes VERBATIM (PRINTMODE_ADDRESSES table byte-for-byte). **v2.00 error.c has NO SMP and NO CPU column** (those are v5.01-isms) — last col is `Chan` (ECC). do_tick IS here: bars/spinner verbatim, rdtsc elapsed-time → PPC timebase. Red row: 0x47 fill + PPC fb_render_cell loop. DMI/ECC/beep/poll_errors commented. Checkpoint stubs: page_of (>>12), insertaddress (return 0); globals p/p1/p2/p0 from main; beepmode owned by init.c. |
+| test.c | ✅ | report `port-test_c.md`. Outer SPINSZ/segment/fwd-rev structure verbatim; each test's x86 asm inner loop commented, upstream-commented plain-C enabled (addr_tst1/bit_fade were already pure C). movinvr seed rdtsc→mftb/mftbu; sleep() rdtsc+clks_msec→Time Base + ofw_get_timebase_freq. block_move had no upstream C — rewrote it: carry-faithful 33-bit `rcll` rotate (NOT the attic's plain rotate), memmove for `rep movsl`, C adjacent-word check. **bit_fade keeps the full ~90-min dwell (STIME=5400) — flagged for the user to maybe shorten.** No cpu-param/calculate_chunk to strip (v2.00 is cpu-free). Fixed a `/* PPC: */`-in-header-comment early-close (same trap init.c hit). TO VERIFY: movinv32 documented-C pattern-math vs the asm's plain roll/ror when sval!=0. |
 
 ### Wave 5 — main
 | main.c | ☐ | tseq, next_test, find_ticks, loop; comment reloc/window/cmdline |
@@ -170,6 +170,16 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   "OFW Map" — recognizably the memtest86+ v2.00 TUI. Evidence:
   `wave3-boot-screen.png`. Wave-5 watch-list below captures the loose ends
   (paging-family call sites, adj_mem stub, title/version question).
+- 2026-05-24: **Wave 4 (error + tests) done and QEMU-verified — M1 headline.**
+  Two subagents ported `error.c` + `test.c`. The verbatim v2.00 PRINTMODE_ADDRESSES
+  error table renders edge-to-edge white-on-red on PPC (4 injected fake errors:
+  page+MB address, Good/Bad/Err-Bits, incrementing Count, Errors:4 tally).
+  Evidence: `wave4-error-table.png`. Confirmed v2.00 error.c has no SMP/CPU-column
+  (col is `Chan`). test.c: faithful asm→C, block_move rotate-through-carry, RNG
+  seed→timebase, bit_fade keeps full ~90-min dwell (flagged). Lead fixes during
+  integration: added `ofw.h` include to test.c; added p/p1/p2/p0 globals to the
+  checkpoint; beepmode is owned by init.c (don't redefine). The full engine now
+  links (all 11 objects) — only the real main.c test LOOP remains (Wave 5).
 
 ## Next steps
 1. **Wave 2:** fan out subagents — `screen_buffer.{c,h}` (#4), `lib.c` (#5, the

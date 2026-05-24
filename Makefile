@@ -19,7 +19,7 @@ LDFLAGS = -T src/linker.ld -nostdlib -N
 # Wave 1 test.h/config.h; Wave 2 screen_buffer/lib/random; Wave 3 init/memsize;
 # Wave 4 error/test; Wave 5 main (replaces the smoke-test stub). See
 # docs/sessions/006-port-fidelity-restructure/HANDOFF.md.
-OBJS = src/head.o src/ofw.o src/display.o src/lib.o src/screen_buffer.o src/random.o src/init.o src/memsize.o src/main.o
+OBJS = src/head.o src/ofw.o src/display.o src/lib.o src/screen_buffer.o src/random.o src/init.o src/memsize.o src/error.o src/test.o src/main.o
 
 all: memtestppc.elf memtestppc.bin
 
@@ -51,6 +51,12 @@ src/init.o: src/init.c src/test.h src/display.h src/ofw.h src/ppc.h src/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/memsize.o: src/memsize.c src/test.h src/ofw.h src/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+src/error.o: src/error.c src/test.h src/display.h src/ofw.h src/ppc.h src/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+src/test.o: src/test.c src/test.h src/ppc.h src/ofw.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Throwaway smoke-test stub; replaced by the ported v2.00 main.c in Wave 5.
