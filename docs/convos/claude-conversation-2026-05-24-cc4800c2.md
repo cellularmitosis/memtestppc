@@ -3050,3 +3050,627 @@ The ISO is in `artifacts/`, and QEMU is running a ~4-minute test pass now. I'll 
 
 ---
 
+## 👤 User
+
+<task-notification>
+<task-id>beterpjf5</task-id>
+<tool-use-id>toolu_01MdfzYY6zqUoNteQALt6iNt</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-cell-claude-memtestppc-/cc4800c2-6f44-4f6c-8c72-522064947463/tasks/beterpjf5.output</output-file>
+<status>completed</status>
+<summary>Background command "Wait 4 minutes, screendump for landing page" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+## 🤖 Claude
+
+The 4-minute run is done. Let me view the screenshot.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Read
+Input: {
+  "file_path": "/tmp/ss_landing.png"
+}
+
+
+---
+
+## 🤖 Claude
+
+That's a clean, representative shot for the landing page — actively testing (Pass 18%, Test #07 Block move, 16:48 elapsed, 0 errors), with all the tweaks visible. Let me save it to `artifacts/` (next to the ISO) and the session dir, then stop QEMU.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cp /tmp/ss_landing.png /Users/cell/claude/memtestppc+/artifacts/memtestppc-running.png && \\\ncp /tmp/ss_landing.png /Users/cell/claude/memtestppc+/docs/sessions/005-release-tweaks/qemu-landing-page.png && \\\nssh opti7050 'pkill -9 -x qemu-system-ppc; echo \"qemu stopped\"' && \\\nls -l /Users/cell/claude/memtestppc+/artifacts/",
+  "description": "Save landing-page screenshot, stop QEMU"
+}
+
+
+---
+
+## 🤖 Claude
+
+Both done:
+
+1. **ISO copied** → [`artifacts/memtestppc.iso`](artifacts/memtestppc.iso) (md5 `cd0c72c8`, identical to the burned disc).
+2. **Landing-page screenshot** → after a ~4-minute QEMU run: Pass 18% / Test #07 (Block move) at 30%, 16:48 elapsed, **0 errors**, clean blue TUI with all the v0.01 tweaks on display. Saved as [`artifacts/memtestppc-running.png`](artifacts/memtestppc-running.png) (and a copy in the session dir). QEMU is stopped.
+
+`artifacts/` now holds the bootable ISO, your `memtest` ELF, and the screenshot.
+
+Still open from earlier: the iBook boot test of the second (genisoimage) disc — whenever you've tried it, let me know which step worked (hold-C, `boot cd:,\\:tbxi`, or the direct `boot cd:,memtestppc.elf`) and I'll lock in the recipe.
+
+---
+
+## 👤 User
+
+yes, the cd worked!  you can update the readme
+
+---
+
+## 🤖 Claude
+
+The CD boots on real hardware — that's the milestone. Let me update the README. First let me re-read its current state to edit precisely.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Read
+Input: {
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "offset": 9,
+  "limit": 36
+}
+
+
+---
+
+## 🤖 Claude
+
+Let me update the status prose, the CD-boot table row, and the build/boot instructions (including the toolchain line, since we switched from xorrisofs to genisoimage).
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "old_string": "**Early, pre-release (v0.01).** Boots and runs end-to-end in QEMU (mac99) and on\nreal iBook G3 hardware: the TUI renders correctly, memory is discovered and\ntested, progress bars and timer work. Not yet packaged for download, and a\n*physical* CD hasn't been burned yet (testing so far is a QEMU `-cdrom` image and\npartition boot on a real iBook). No releases yet.",
+  "new_string": "**Early, pre-release (v0.01).** Boots and runs end-to-end on real iBook G3\nhardware \u2014 from a **burned CD-R**, from an HFS+ partition, and as a QEMU `-cdrom`\nimage. The TUI renders correctly, memory is discovered and tested, progress bars\nand timer work. Not yet packaged for download. No releases yet."
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "old_string": "| Physical CD boot | \u274c Not working | Burned CD-R gives a blinking folder on real Apple OF; the CHRP boot script only works under QEMU/OpenBIOS. Needs a Mac-blessed boot setup. |",
+  "new_string": "| Physical CD boot | \u2705 Working | Burned CD-R boots on a real iBook G3. genisoimage HFS hybrid: DDM+APM+blessed `tbxi` boot script (`ofboot.b`) with a `<COMPATIBLE>` block for New World OF. |"
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "old_string": "Requires a `powerpc-linux-gnu` cross toolchain, `qemu-system-ppc`, and\n`xorrisofs` (all on a Linux host; Tiger's own gcc can't produce the ELF that\nOpen Firmware needs).\n\n```sh\nmake memtestppc.iso\n\n# Run in QEMU (mac99; 128 MB+ is required for OpenBIOS auto-boot):\nqemu-system-ppc -M mac99 -m 256 -cdrom memtestppc.iso -boot d\n```\n\nOn a real PowerPC Mac, boot the ISO from Open Firmware (`boot cd:,\\memtestppc.elf`)\nor copy `memtestppc.elf` to an HFS+ partition and `boot hd:N,memtestppc.elf`.",
+  "new_string": "Requires a `powerpc-linux-gnu` cross toolchain, `qemu-system-ppc`, and\n`genisoimage` (all on a Linux host; Tiger's own gcc can't produce the ELF that\nOpen Firmware needs).\n\n```sh\nmake memtestppc.iso\n\n# Run in QEMU (mac99; 128 MB+ is required for OpenBIOS auto-boot):\nqemu-system-ppc -M mac99 -m 256 -cdrom memtestppc.iso -boot d\n```\n\nOn a real PowerPC Mac, burn `memtestppc.iso` to a CD-R (e.g.\n`wodim -dao -eject dev=/dev/sr0 memtestppc.iso`) and hold **C** at the startup\nchime, or boot it from the Open Firmware prompt with `boot cd:,\\\\:tbxi`.\nAlternatively, copy `memtestppc.elf` to an HFS+ partition and\n`boot hd:N,memtestppc.elf`."
+}
+
+
+---
+
+## 🤖 Claude
+
+README updated. The now-stale bits in `CLAUDE.md` (invariant #6 says "no physical CD has been burned yet", and the `cd/` layout line) should be corrected too. Let me read those.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "grep -n \"bootinfo.txt\\|No physical CD\\|physical disc\\|CD boot.*means\\|cd/ \" /Users/cell/claude/memtestppc+/CLAUDE.md",
+  "description": "Locate stale CD references in CLAUDE.md"
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Read
+Input: {
+  "file_path": "/Users/cell/claude/memtestppc+/CLAUDE.md",
+  "offset": 148,
+  "limit": 8
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/CLAUDE.md",
+  "old_string": "6. **No physical CD has been burned yet.** \"CD boot\" everywhere means a QEMU\n   `-cdrom` ISO; the only real-hardware testing so far is partition boot on\n   ibookg32. Burning + booting a physical disc is still an open to-do.",
+  "new_string": "6. **Physical CD boot works on real Apple OF (since session 005).** A burned\n   CD-R boots on the iBook G3. Real Apple New World OF needs more than QEMU's\n   OpenBIOS: build the ISO with `genisoimage -hfs -part -hfs-bless` (DDM + Apple\n   Partition Map + an Apple_HFS slice with a blessed folder), the boot file must\n   be HFS type `tbxi` (via `cd/hfs.map`), and `cd/ofboot.b` needs a\n   `<COMPATIBLE>` block listing the machine family (incl. `MacRISC2` for the\n   iBook G3). `xorrisofs -hfsplus` booted under OpenBIOS but gave a blinking\n   folder on real hardware \u2014 see [`docs/sessions/005-release-tweaks/HANDOFF.md`]."
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/CLAUDE.md",
+  "old_string": "cd/                \u2014 CHRP bootinfo.txt for the bootable ISO.",
+  "new_string": "cd/                \u2014 boot script (ofboot.b) + HFS type map (hfs.map) for the ISO."
+}
+
+
+---
+
+## 🤖 Claude
+
+Now let me record the success in the handoff and close out the task.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/docs/sessions/005-release-tweaks/HANDOFF.md",
+  "old_string": "**Second burn:** ISO is 591 sectors (no padding needed this time). md5\n`cd0c72c892fe659cdb2e8599e2d84239`. Burned with\n`sudo wodim dev=/dev/sr0 -v -dao -eject speed=8 memtestppc.iso` \u2014 clean, fixated,\nejected. Awaiting iBook test.",
+  "new_string": "**Second burn:** ISO is 591 sectors (no padding needed this time). md5\n`cd0c72c892fe659cdb2e8599e2d84239`. Burned with\n`sudo wodim dev=/dev/sr0 -v -dao -eject speed=8 memtestppc.iso` \u2014 clean, fixated,\nejected.\n\n**RESULT: the burned CD boots on the real iBook G3.** \u2705 First-ever physical-CD\nboot on real Apple hardware. The genisoimage HFS-hybrid + blessed tbxi +\n`<COMPATIBLE>` recipe is the working one. (Exact boot method \u2014 hold-C vs\n`boot cd:,\\\\:tbxi` \u2014 to be confirmed with the user; both are the bless path.)\nREADME + CLAUDE.md (invariant #6) updated to reflect this.\n\n**Release artifacts** copied to `artifacts/`: `memtestppc.iso` (the bootable\nimage, md5 `cd0c72c8\u2026`), `memtest` (the ELF), and `memtestppc-running.png` (a\n4-minute QEMU run for the landing page \u2014 Pass 18%, Test #07, 0 errors)."
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: TaskUpdate
+Input: {
+  "taskId": "8",
+  "status": "completed"
+}
+
+
+---
+
+## 🤖 Claude
+
+Updated and the milestone's recorded. Changes:
+
+- **README**: status prose now leads with "boots from a burned CD-R on real iBook G3"; the *Physical CD boot* row flipped from ❌ to ✅ with the genisoimage/DDM+APM/blessed-`tbxi` note; build deps changed `xorrisofs`→`genisoimage`; boot instructions now cover burning + hold-`C` / `boot cd:,\\:tbxi`.
+- **CLAUDE.md**: invariant #6 rewritten (was "no physical CD burned yet" → now documents the working genisoimage recipe and why xorrisofs failed on real OF); `cd/` layout line updated to `ofboot.b` + `hfs.map`.
+- **Handoff**: recorded the success; task #8 closed.
+
+Two quick things:
+
+1. **Which boot method actually worked** — hold-`C` at the chime, or `boot cd:,\\:tbxi` at the OF prompt? I documented both in the README; if only one was tested I'll tighten it to match.
+
+2. **Commit?** This CD-boot rework is a meaningful, now-hardware-verified change (new `cd/ofboot.b`, `cd/hfs.map`, Makefile switch to genisoimage, README/CLAUDE.md/handoff updates). Want me to commit it? And for the `artifacts/` dir (1.2 MB ISO + ELF + PNG) — track it in git, or add it to `.gitignore` as local build output?
+
+---
+
+## 👤 User
+
+hold-c was tested and worked, and OF 'boot hd:3,memtest' also worked.  hang on the commit for just a sec
+
+---
+
+## 🤖 Claude
+
+Got it — holding off on the commit. Noted: hold-`C` boots the CD, and `boot hd:3,memtest` boots from the HD partition (both confirmed). The README's boot instructions already match that.
+
+I see the README now references `docs/media/memtestppc-v0.01.png` as a hero image. Let me check whether that file exists yet.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "ls -la /Users/cell/claude/memtestppc+/docs/media/ 2>&1 || echo \"docs/media/ does not exist yet\"",
+  "description": "Check for docs/media hero image"
+}
+
+
+---
+
+## 🤖 Claude
+
+The hero image is already in place — `docs/media/memtestppc-v0.01.png` (4170 bytes) is the landing-page screenshot from the 4-minute QEMU run, so the README will render correctly.
+
+Everything's consistent and ready whenever you give the word:
+- **README** — hero image + ✅ Physical CD boot + genisoimage build deps + burn/hold-`C` instructions.
+- **CLAUDE.md** — invariant #6 rewritten, `cd/` layout line updated.
+- **New build files** — `cd/ofboot.b`, `cd/hfs.map`, Makefile switched to genisoimage.
+- **Handoff** — session 005 fully logged.
+
+Holding on the commit. Just say go (and let me know your call on `artifacts/` — track in git vs `.gitignore`), and I'll bundle it up.
+
+---
+
+## 👤 User
+
+I want to add a `_vide coded with Claude <icon>_` tag line.  where can I get a claude code icon small enough to put in-line with that line of text, and how would I do that in markdown (or would I just use a bit of html?)
+
+---
+
+## 🤖 Claude
+
+Short version: use inline **HTML `<img>`**, not markdown image syntax — markdown's `![](…)` gives you no control over size or alignment, which is exactly what an inline icon needs.
+
+**The markdown/HTML:**
+
+GitHub-flavored markdown lets you drop raw HTML onto a text line, so:
+
+```markdown
+_vibe coded with Claude <img src="docs/media/claude-mark.svg" alt="Claude" height="16">_
+```
+
+Key gotchas:
+- **Size with the `height` attribute, not CSS.** GitHub's sanitizer keeps `src`/`alt`/`width`/`height` on `<img>` but **strips `style`**. So `height="16"` works on GitHub; `style="height:16px"` gets dropped.
+- **Vertical alignment**: on GitHub you can't `vertical-align:middle` (style stripped) — just pick a height near the text size (14–18px) and it sits fine on the baseline. On your *own* landing page (full HTML/CSS), you can do `<img src="…" alt="Claude" style="height:1em;vertical-align:-0.15em">` for pixel-perfect centering.
+- **SVG beats PNG** here — crisp at any size, recolorable. If PNG, export ~2× (≈32px tall) so it's sharp on retina.
+
+**Where to get the icon:**
+1. **Official Anthropic brand assets** — the canonical Claude logomark. It's on Anthropic's site under brand/press (I won't guess the exact URL). Using it to say "made with Claude" is fine; use the official mark unmodified.
+2. **Simple Icons** (simpleicons.org) — has a single-color "Claude"/"Anthropic" SVG glyph, ideal for a tiny inline mark and easy to recolor to match your page.
+3. **Emoji fallback** — `✨` or `🤖` if you want zero assets (not the real logo, but no file to maintain).
+
+I'd recommend **committing a small SVG into `docs/media/`** (e.g. `claude-mark.svg`) and referencing it locally, so the README doesn't depend on an external URL that could break or get hotlink-blocked.
+
+Want me to grab the Simple Icons Claude SVG, drop it in `docs/media/`, and wire the tagline into the README for you? (Say the word and I'll fetch it — or if you'd rather use the official Anthropic mark, hand me the file/URL and I'll wire that instead.)
+
+---
+
+## 👤 User
+
+ok, got it added.  the README is where I want it, can you commit, push, and cut a github release, and attach the two artifacts to it?
+
+---
+
+## 🤖 Claude
+
+Let me gather the current git/repo state before doing anything irreversible.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+\necho \"=== git status ===\"; git status\necho \"=== remote ===\"; git remote -v\necho \"=== recent log ===\"; git log --oneline -3\necho \"=== artifacts dir ===\"; ls -la artifacts/\necho \"=== docs/media ===\"; ls -la docs/media/",
+  "description": "Gather git status, remote, log, artifacts"
+}
+
+
+---
+
+## 🤖 Claude
+
+I see the current state: there's a GitHub remote (`cellularmitosis/memtestppc`), branch is up to date at `734e658 "working artifacts"`, and you've staged everything (including `artifacts/` and the new `docs/media/claude.svg` icon + hero image). Let me review exactly what's staged before committing, and confirm `gh` is ready.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+\necho \"=== staged stat ===\"; git diff --cached --stat\necho \"=== .gitignore change ===\"; git diff --cached .gitignore\necho \"=== README tail (tagline) ===\"; tail -20 README.md\necho \"=== gh auth ===\"; gh auth status 2>&1 | head -6\necho \"=== existing releases/tags ===\"; gh release list 2>&1 | head; git tag | head",
+  "description": "Review staged diff, gitignore, README tagline, gh auth, releases"
+}
+
+
+---
+
+## 🤖 Claude
+
+Staged set looks intentional (`.gitignore` un-ignores `artifacts/`, so you're deliberately tracking the binaries; new `docs/media/claude.svg` icon + hero image; CLAUDE.md/README/handoff updates). `gh` is authed as `cellularmitosis` with `repo` scope, and there are no releases yet — so v0.01 will be the first.
+
+One check before I commit: my handoff references a `qemu-genisoimage-boot.png` — let me make sure it's tracked so the link isn't broken, and see the full untracked picture.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+\necho \"=== git status --short (incl untracked) ===\"; git status --short\necho \"=== session dir contents ===\"; ls -la docs/sessions/005-release-tweaks/\necho \"=== is qemu-genisoimage-boot.png tracked? ===\"; git ls-files docs/sessions/005-release-tweaks/ | grep -i genisoimage || echo \"NOT tracked\"",
+  "description": "Check untracked files and session dir image tracking"
+}
+
+
+---
+
+## 🤖 Claude
+
+Everything checks out — `qemu-genisoimage-boot.png` is already tracked (committed in `734e658`), so all handoff links are intact, and the staged set is complete and intentional. Committing now.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "git commit -m \"$(cat <<'EOF'\nsession 005: bootable CD on real Apple OF + v0.01 release artifacts\n\n- genisoimage HFS-hybrid ISO recipe (DDM + Apple Partition Map + blessed\n  tbxi ofboot.b with a <COMPATIBLE> block) \u2014 boots a burned CD-R on the\n  iBook G3 via hold-C. The old xorrisofs -hfsplus image booted under\n  QEMU/OpenBIOS but gave a blinking folder on real Apple OF.\n- new cd/ofboot.b, cd/hfs.map; Makefile iso target switched to genisoimage.\n- README: hero image + tagline, Physical CD boot flipped to working,\n  build dep xorrisofs -> genisoimage, burn/hold-C instructions.\n- CLAUDE.md invariant #6 rewritten; cd/ layout line updated.\n- track artifacts/ (memtestppc.iso + memtest ELF) for the release.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\nEOF\n)\" && echo \"=== committed ===\" && git log --oneline -2",
+  "description": "Commit the CD-boot rework and release artifacts"
+}
+
+
+---
+
+## 🤖 Claude
+
+Committed as `3548c3b`. Now pushing to origin.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "git push origin main 2>&1 | tail -8",
+  "description": "Push main to origin"
+}
+
+
+---
+
+## 🤖 Claude
+
+Pushed (`734e658..3548c3b`). Now cutting the v0.01 release with both artifacts attached.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+\ngh release create v0.01 \\\n  --title \"memtestppc+ v0.01\" \\\n  --notes \"$(cat <<'EOF'\nFirst release of **memtestppc+** \u2014 a standalone, bootable RAM tester for PowerPC Macs, porting the [memtest86+](https://www.memtest.org/) v5.01 blue-screen TUI to Open Firmware. It runs with **no operating system**, so the maximum fraction of RAM is under test.\n\n**Verified on real hardware:** boots on an iBook G3 (PowerBook4,1) from a burned CD-R (hold **C** at the startup chime) and from an HFS+ partition, plus QEMU (mac99). Tests ~236 MB of 256 MB.\n\n### Downloads\n- **`memtestppc.iso`** \u2014 burn to a CD-R (e.g. `wodim -dao -eject dev=/dev/sr0 memtestppc.iso`) and hold **C** at the chime, or `boot cd:,\\:tbxi` from the Open Firmware prompt.\n- **`memtest`** \u2014 the raw PowerPC ELF; copy to an HFS+ partition and `boot hd:N,memtest` from Open Firmware.\n\nBuilt as a genisoimage HFS hybrid (DDM + Apple Partition Map + blessed `tbxi` boot script). GPL v2.\nEOF\n)\" \\\n  artifacts/memtestppc.iso artifacts/memtest 2>&1 | tail -5",
+  "description": "Create v0.01 release and upload artifacts"
+}
+
+
+---
+
+## 🤖 Claude
+
+Release created. Let me verify the two assets attached correctly.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "gh release view v0.01 --json tagName,name,assets --jq '{tag: .tagName, name: .name, assets: [.assets[] | {name: .name, size: .size}]}'",
+  "description": "Verify release tag and attached assets"
+}
+
+
+---
+
+## 🤖 Claude
+
+Done — the v0.01 release is live with both artifacts attached:
+
+**https://github.com/cellularmitosis/memtestppc/releases/tag/v0.01**
+
+- Commit `3548c3b` pushed to `main`.
+- Release **memtestppc+ v0.01** (tag `v0.01`), first release on the repo.
+- Assets: `memtestppc.iso` (1.18 MB, burn to CD-R) and `memtest` (31 KB, the ELF for partition boot).
+
+Let me update my memory of the iBook hardware with the now-confirmed boot facts so a future session doesn't re-derive them.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Read
+Input: {
+  "file_path": "/Users/cell/.claude/projects/-Users-cell-claude-memtestppc-/memory/project-ibookg32-testing.md"
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/.claude/projects/-Users-cell-claude-memtestppc-/memory/project-ibookg32-testing.md",
+  "old_string": "**Boot method:** ELF on second HFS+ partition (disk0s5, \"Untitled 2\"), boot via OF `boot hd:5,memtestppc.elf`. NVRAM untouched \u2014 Tiger reboots normally.",
+  "new_string": "**Boot methods (all confirmed on real hardware as of 2026-05-23):**\n- **Burned CD-R**: hold **C** at the chime (or `boot cd:,\\:tbxi` at the OF prompt). Requires the genisoimage HFS-hybrid ISO recipe \u2014 see CLAUDE.md invariant #6. (The older xorrisofs `-hfsplus` image gave a blinking folder on this machine.)\n- **HD partition**: copy the ELF to an HFS+ partition root and `boot hd:N,<file>` from OF. NVRAM untouched \u2014 Tiger reboots normally.\n\n**OF partition numbering (this disk):** OF `hd:N` == Darwin `disk0sN` == Apple Partition Map index here. `hd:3` = disk0s3 = \"Untitled 1\" (Tiger boot volume, where files at root are siblings to mach_kernel); `hd:5` = disk0s5 = \"Untitled 2\" (the 36GB test partition). `hd:2`/`hd:4` are Apple_Free gaps (not bootable). A root-level file boots as `boot hd:3,filename` (no leading backslash needed)."
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/.claude/projects/-Users-cell-claude-memtestppc-/memory/project-ibookg32-testing.md",
+  "old_string": "description: \"ibookg32 iBook G3 is the primary real hardware test target for memtestppc+; partition boot method, SSH routing, 8-bit framebuffer quirks\"",
+  "new_string": "description: \"ibookg32 iBook G3 is the primary real hardware test target for memtestppc+; CD-R + partition boot methods, OF partition numbering, SSH routing, 8-bit framebuffer quirks\""
+}
+
+
+---
+
+## 🤖 Claude
+
+All shipped. Summary:
+
+- **Committed** `3548c3b` and **pushed** to `main`.
+- **Release live**: https://github.com/cellularmitosis/memtestppc/releases/tag/v0.01 — tag `v0.01`, both assets attached (`memtestppc.iso` 1.18 MB, `memtest` 31 KB).
+- Updated my memory of the iBook with the confirmed boot methods (CD-R via hold-C, HD partition) and the OF partition numbering, so a future session won't re-derive it.
+
+Two small heads-ups (no action taken, since you said the README is where you want it):
+- The README **Layout** section still lists `cd/ — CHRP bootinfo.txt`, but the build now uses `cd/ofboot.b` + `cd/hfs.map`. Easy one-line fix whenever you like.
+- `cd/bootinfo.txt` (the old xorrisofs CHRP script) is now unused — fine to leave as reference or delete.
+
+Session handoff (for the next session's opening prompt): `docs/sessions/005-release-tweaks/HANDOFF.md`
+
+That wraps the plan you laid out — tweaks → QEMU → first real CD → burn → boot on real hardware → released. Session 006 is queued for the true memtest86+ port restructuring.
+
+---
+
+## 👤 User
+
+oh yes please clean up those two items
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "old_string": "cd/         \u2014 CHRP bootinfo.txt for the bootable ISO.",
+  "new_string": "cd/         \u2014 boot script (ofboot.b) + HFS type map (hfs.map) for the ISO."
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+; grep -n \"cd/\" README.md; echo \"=== cd/ dir ===\"; ls cd/; echo \"=== git status ===\"; git status --short",
+  "description": "Find current cd/ line in README and check cd dir + git status"
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Read
+Input: {
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "offset": 69,
+  "limit": 10
+}
+
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Edit
+Input: {
+  "replace_all": false,
+  "file_path": "/Users/cell/claude/memtestppc+/README.md",
+  "old_string": "cd/         \u2014 CHRP bootinfo.txt for the bootable ISO.",
+  "new_string": "cd/         \u2014 boot script (ofboot.b) + HFS type map (hfs.map) for the ISO."
+}
+
+
+---
+
+## 🤖 Claude
+
+Now remove the unused `cd/bootinfo.txt` and check the working tree state.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+; ls cd/; echo \"=== rm ===\"; git rm cd/bootinfo.txt; echo \"=== status ===\"; git status --short",
+  "description": "Remove unused cd/bootinfo.txt and show status"
+}
+
+
+---
+
+## 🤖 Claude
+
+Both cleaned up. Committing and pushing the tidy-up.
+
+---
+
+## 🤖 Claude
+
+
+🔧 Using tool: Bash
+Input: {
+  "command": "cd /Users/cell/claude/memtestppc+\ngit add README.md\ngit commit -m \"$(cat <<'EOF'\ndocs: fix README cd/ layout line; drop unused cd/bootinfo.txt\n\nThe genisoimage build uses cd/ofboot.b + cd/hfs.map now; the old xorrisofs\nCHRP bootinfo.txt is no longer referenced.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\nEOF\n)\" && git push origin main 2>&1 | tail -4",
+  "description": "Commit and push the README + bootinfo.txt cleanup"
+}
+
+
+---
+
+## 🤖 Claude
+
+Both cleanups are committed and pushed (`3307fcb`):
+- README Layout line now reads `cd/ — boot script (ofboot.b) + HFS type map (hfs.map) for the ISO.`
+- `cd/bootinfo.txt` deleted (the build no longer references it).
+
+`main` is up to date on GitHub, the v0.01 release is live, and the working tree is clean. Nothing else outstanding.
+
+---
+
