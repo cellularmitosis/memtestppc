@@ -683,7 +683,6 @@ void check_input(void)
 	static ofw_ihandle_t stdin_ih = 0;
 	static int stdin_init = 0;
 	unsigned char ch;
-	int n;
 
 	if (!stdin_init) {
 		stdin_ih = ofw_get_stdin();
@@ -693,68 +692,71 @@ void check_input(void)
 		return;
 	}
 
-	/* OF "read" is non-blocking on a console: returns the bytes available
-	 * (0 if none). Read a single byte. */
-	n = ofw_read(stdin_ih, &ch, 1);
-	if (n <= 0) {
-		return;
-	}
-
-	if (ch == 27) {
-		/* A lone ESC means "reboot" (the footer advertises it). But the arrow
-		 * keys (and other navigation/function keys) arrive over the OF console
-		 * as an ANSI escape sequence — ESC '[' <final> (CSI) or ESC 'O' <final>
-		 * (SS3) — so the first byte of e.g. Down-arrow is ESC. Without this,
-		 * pressing an arrow rebooted the machine. If a sequence follows the ESC,
-		 * drain and ignore it; only a *bare* ESC reboots. */
-		unsigned char c2;
-		if (read_pending_byte(stdin_ih, &c2)) {
-			if (c2 == '[' || c2 == 'O') {
-				/* CSI/SS3 — consume through the final byte (0x40..0x7e),
-				 * which also covers longer forms like ESC '[' '3' '~'. */
-				unsigned char cf;
-				int k;
-				for (k = 0; k < 8; k++) {
-					if (!read_pending_byte(stdin_ih, &cf)) {
-						break;
-					}
-					if (cf >= 0x40 && cf <= 0x7e) {
-						break;
+	/* Drain ALL pending console input on each call, not just one byte.
+	 * check_input() runs once per do_tick() — i.e. once per SPINSZ (32 MB)
+	 * chunk — so reading a single event per call meant a backlog of buffered
+	 * keystrokes (e.g. mashing the arrow keys) drained only one-per-chunk, and
+	 * an ESC queued behind them took several chunks (seconds, on a slow test) to
+	 * be reached. OF "read" is non-blocking (returns 0 when the buffer is empty),
+	 * so loop until it drains; a held key's auto-repeat has gaps, so the buffer
+	 * empties and the loop exits between repeats. */
+	while (ofw_read(stdin_ih, &ch, 1) > 0) {
+		if (ch == 27) {
+			/* A lone ESC means "reboot" (the footer advertises it). But the
+			 * arrow keys (and other navigation/function keys) arrive over the OF
+			 * console as an ANSI escape sequence — ESC '[' <final> (CSI) or
+			 * ESC 'O' <final> (SS3) — so the first byte of e.g. Down-arrow is
+			 * ESC. If a sequence follows the ESC, drain and ignore it; only a
+			 * *bare* ESC reboots. */
+			unsigned char c2;
+			if (read_pending_byte(stdin_ih, &c2)) {
+				if (c2 == '[' || c2 == 'O') {
+					/* CSI/SS3 — consume through the final byte (0x40..0x7e),
+					 * which also covers longer forms like ESC '[' '3' '~'. */
+					unsigned char cf;
+					int k;
+					for (k = 0; k < 8; k++) {
+						if (!read_pending_byte(stdin_ih, &cf)) {
+							break;
+						}
+						if (cf >= 0x40 && cf <= 0x7e) {
+							break;
+						}
 					}
 				}
+				continue;	/* navigation/function key — keep draining */
 			}
-			return;	/* navigation/function key — not a reboot */
+			/* Bare ESC -> reboot. */
+			cprint(LINE_RANGE, COL_MID+23, "Halting... ");
+			ofw_reset();
+			/* ofw_reset() should not return; loop just in case. */
+			while (1) { }
 		}
-		/* Bare ESC -> reboot. */
-		cprint(LINE_RANGE, COL_MID+23, "Halting... ");
-		ofw_reset();
-		/* ofw_reset() should not return; loop just in case. */
-		while (1) { }
-	}
 
-	switch (ch) {
-	/* PPC: the footer advertises these keys (Wave 6 wires them up — config.c
-	 * is now ported and get_key() is OF-backed). 'c' opens the config menu;
-	 * SP/CR toggle scroll-lock; ^L redraws. */
-	case 'c':
-	case 'C':
-		get_config();
-		break;
-	case ' ':
-		slock = 1;
-		footer();
-		break;
-	case '\r':
-	case '\n':
-		slock = 0;
-		footer();
-		break;
-	case 0x0c:
-		/* ^L - redraw the display */
-		tty_print_screen();
-		break;
-	default:
-		break;
+		switch (ch) {
+		/* PPC: the footer advertises these keys (Wave 6 wires them up — config.c
+		 * is now ported and get_key() is OF-backed). 'c' opens the config menu;
+		 * SP/CR toggle scroll-lock; ^L redraws. */
+		case 'c':
+		case 'C':
+			get_config();
+			break;
+		case ' ':
+			slock = 1;
+			footer();
+			break;
+		case '\r':
+		case '\n':
+			slock = 0;
+			footer();
+			break;
+		case 0x0c:
+			/* ^L - redraw the display */
+			tty_print_screen();
+			break;
+		default:
+			break;
+		}
 	}
 
 	/* x86 original (PS/2 scancodes), preserved for reference:

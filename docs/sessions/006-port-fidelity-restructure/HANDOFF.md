@@ -270,6 +270,19 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   arrow keys still go through `get_key()` (no draining there) and inject mapped
   junk into `getval()` numeric entry — harmless, not the reported bug.
 
+- 2026-05-24: **Second input fix from hardware testing — drain the whole console
+  buffer per `check_input()`.** User found: after mashing arrow keys then pressing
+  ESC, the reboot took several seconds. Cause: `check_input()` is called once per
+  `do_tick()` (once per SPINSZ/32 MB chunk) and processed only **one event per
+  call**, so a backlog of buffered keystrokes drained one-per-chunk and the ESC
+  queued behind them wasn't reached for many chunks. Fix (`lib.c`): wrap the read
+  + dispatch in `while (ofw_read(...) > 0)` to **process every pending byte in
+  order each call** (meaningful keys acted on; arrow/nav escape sequences drained
+  + ignored). A held key's auto-repeat has gaps so the buffer empties and the loop
+  exits — no busy-spin. QEMU-regression OK (tests run Errors:0; lone-ESC still
+  reboots). Redeployed to `ibookg32:/memtest`. (Note: this is process-in-order,
+  not flush — a queued `c`/scroll-lock before the ESC is still honored.)
+
 ## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified; hardware bring-up underway)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is
