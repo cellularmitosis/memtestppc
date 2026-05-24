@@ -1,0 +1,12 @@
+<CHRP-BOOT>
+<COMPATIBLE>
+MacRISC MacRISC2 MacRISC3 MacRISC4
+</COMPATIBLE>
+<DESCRIPTION>
+memtestppc+ memory tester
+</DESCRIPTION>
+<BOOT-SCRIPT>
+load cd:,\memtestppc.elf
+go
+</BOOT-SCRIPT>
+</CHRP-BOOT>

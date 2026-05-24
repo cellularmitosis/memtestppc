@@ -25,7 +25,7 @@ partition boot on a real iBook). No releases yet.
 | Memory discovery + test | ✅ Working | Claims RAM from OF in 1 MB chunks (~244 MB of 256 on the iBook). |
 | Error display (white-on-red) | 🟡 Partial | Full-row red verified in QEMU; not yet seen on real 8-bit hardware. |
 | Bit-fade test (test 11) | 🟡 Partial | Runs, but the timed fade window is stubbed out (no `sleep()` yet). |
-| Physical CD boot | ❌ Not yet | The ISO has only ever been booted in QEMU. |
+| Physical CD boot | ❌ Not working | Burned CD-R gives a blinking folder on real Apple OF; the CHRP boot script only works under QEMU/OpenBIOS. Needs a Mac-blessed boot setup. |
 
 ## Building & running
 

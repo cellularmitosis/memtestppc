@@ -1,0 +1,7 @@
+# genisoimage HFS type/creator map for the bootable CD.
+# The blessed boot script (ofboot.b) MUST be HFS type 'tbxi' so New World
+# Open Firmware recognizes it as the boot file in the blessed folder.
+# EXTN   XLate   CREATOR   TYPE     Comment
+.b              Raw     'UNIX'    'tbxi'   "bootstrap"
+.elf            Raw     'UNIX'    'UNIX'   "executable"
+*               Raw     'UNIX'    'UNIX'   "unix"

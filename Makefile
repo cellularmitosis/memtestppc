@@ -44,14 +44,26 @@ clean:
 	rm -f src/*.o memtestppc.elf memtestppc.bin memtestppc.iso
 	rm -rf cd_root
 
-# Build bootable CD image
-memtestppc.iso: memtestppc.elf cd/bootinfo.txt
-	mkdir -p cd_root/ppc/chrp
+# Build bootable CD image.
+#
+# Uses genisoimage's classic-HFS hybrid (-hfs -part -hfs-bless), the recipe
+# that boots on real New World Apple Open Firmware (the prior xorrisofs
+# -hfsplus image booted under QEMU/OpenBIOS but gave a blinking folder on a
+# real iBook G3 — see docs/sessions/005). Layout:
+#   /memtestppc.elf      the program, loaded by the boot script
+#   /boot/ofboot.b       CHRP boot script, HFS type 'tbxi' (via hfs.map),
+#                        in the blessed folder so OF finds it on hold-C.
+memtestppc.iso: memtestppc.elf cd/ofboot.b cd/hfs.map
+	mkdir -p cd_root/boot
 	cp memtestppc.elf cd_root/
-	cp cd/bootinfo.txt cd_root/ppc/chrp/
-	xorrisofs -R -hfsplus \
-		-hfsplus-file-creator-type chrp tbxi /ppc/chrp/bootinfo.txt \
-		-hfs-bless-by p /ppc/chrp \
+	cp cd/ofboot.b cd_root/boot/
+	cp cd/hfs.map cd_root/boot/
+	genisoimage -hide-rr-moved -hfs -part \
+		-map cd/hfs.map \
+		-no-desktop \
+		-hfs-volid memtestppc \
+		-hfs-bless cd_root/boot \
+		-pad -l -r -J -v -V MEMTESTPPC \
 		-o $@ cd_root/
 	rm -rf cd_root
 

@@ -110,6 +110,110 @@ display-layer only — no test logic touched.
 
 ISO: `opti7050:/home/cell/memtestppc+/memtestppc.iso` (clean, no fake errors).
 
+## First physical CD burned (session 005)
+
+Committed the source state as `134ea1a` ("session 005: pre-release TUI tweaks +
+error-row red fix"), then burned the first physical disc — versions stay at
+**0.01** per user (no bump), both "Testing" labels kept.
+
+- Media: blank CD-R in opti7050's `/dev/sr0` (not erasable, ~700MB blank).
+- **Gotcha:** the ISO is only 208 sectors (416KB), below the CD ~300-sector
+  minimum track size. Padded a burn copy to 512 sectors first:
+  `cp memtestppc.iso /tmp/burn.iso && truncate -s 1048576 /tmp/burn.iso`
+  (trailing zeros are outside the ISO9660/HFS+ filesystem → harmless; the
+  filesystem still declares 208 sectors).
+- Burn: `sudo wodim dev=/dev/sr0 -v -dao -eject speed=8 /tmp/burn.iso` — wrote
+  512 sectors, fixated in ~9s, no errors, disc ejected. (`cell` is in the
+  `cdrom` group and has passwordless sudo on opti7050.)
+
+This satisfies CLAUDE.md invariant #6's open to-do (no physical CD had ever been
+burned).
+
+### Physical CD does NOT boot on real Apple OF (blinking folder)
+
+Booted the burned disc on ibookg32 → **blinking-folder icon**, i.e. Apple Open
+Firmware found nothing bootable. So our CHRP `bootinfo.txt` boot script, which
+OpenBIOS (QEMU) honors for `-cdrom` boot, is **not** honored by real Apple OF.
+This is a genuine OpenBIOS-vs-Apple-OF divergence, not a bad burn. Physical CD
+boot on real Macs needs a different approach (likely an Apple "blessed" tbxi /
+BootX-style setup, or a real CHRP boot partition) — scoped as future work, NOT
+solved this session. The burn mechanics themselves are fine (image was written
+and fixated cleanly).
+
+### Fell back to partition boot (proven path from session 004)
+
+iBook was up in Tiger and reachable, so deployed the fresh session-005 ELF to the
+second HFS+ partition, overwriting the older 004 ELF:
+`scp opti7050:.../memtestppc.elf /tmp/ && scp /tmp/memtestppc.elf
+ibookg32:"/Volumes/Untitled 2/memtestppc.elf"` (opti7050 can't SCP to the iBook
+directly — legacy ciphers — so route through uranium). Verified md5 match on the
+iBook: `839fe0115107844ebfe67f81279987ae`. Boot from OF with
+`boot hd:5,memtestppc.elf`. Awaiting the user's on-hardware result of the
+session-005 tweaks (progress bars, two-line memory, footer) and especially the
+full-width-red error rows on the real 8-bit display.
+
+## CD-boot rework for real Apple OF (genisoimage recipe)
+
+The first burn's blinking folder sent us to look at prior art in
+`../rogerppc/attic/subprojects/` (user pointer). Key references:
+`osx-livecd/notes/disc-formats.md` (what makes a PPC disc bootable) and
+`brick-recovery/scripts/remaster.sh` (a **proven** New World bootable-CD recipe —
+booted finnix recovery CDs on real PowerBooks).
+
+**Diagnosis — three reasons the xorrisofs disc failed on Apple OF:**
+1. `xorrisofs -hfsplus -hfs-bless-by p` produces an HFS+ hybrid whose bless Apple
+   OF didn't recognize. The proven recipe is genisoimage's *classic* HFS hybrid:
+   `genisoimage -hfs -part -hfs-bless <dir> -map <hfs.map>` → DDM + APM +
+   Apple_HFS slice + a blessed folder, which is what New World OF actually scans.
+2. **No `<COMPATIBLE>` block.** Apple OF matches the CHRP boot script against the
+   machine's `compatible` property. finnix's `ofboot.b` lists
+   `MacRISC MacRISC3 MacRISC4`; the iBook G3 (PowerBook4,1) is **MacRISC2**, so we
+   list `MacRISC MacRISC2 MacRISC3 MacRISC4`.
+3. The boot file must be HFS type **`tbxi`** in the blessed folder (set via
+   `hfs.map`: `.b → 'tbxi'`), so OF's hold-C / `\\:tbxi` lookup finds it.
+
+**What changed in the repo:**
+- New `cd/ofboot.b` — CHRP boot script with `<COMPATIBLE>` + a `load cd:,\memtestppc.elf` / `go` body.
+- New `cd/hfs.map` — assigns `.b → tbxi`.
+- `Makefile` `memtestppc.iso` target rewritten from xorrisofs to
+  `genisoimage -hfs -part -map cd/hfs.map -hfs-bless cd_root/boot ...`, layout
+  `/memtestppc.elf` + blessed `/boot/ofboot.b`.
+- `cd/bootinfo.txt` (old xorrisofs CHRP script) is now unused — left in place.
+
+**Boot-script verb — OpenBIOS vs Apple OF (a real divergence):**
+- First try used finnix's exact `boot cd:,\\memtestppc.elf` (doubled backslash,
+  `boot` verb). QEMU/OpenBIOS found the tbxi (`Trying cd:,\\:tbxi...` — **the
+  bless works!**) but then `No valid state has been set by load or init-program`
+  — OpenBIOS wants `load`+`go`, not `boot`, and dislikes the `\\`.
+- Switched the script body to `load cd:,\memtestppc.elf` + `go` (single
+  backslash). **QEMU now boots the TUI fully** — see
+  [`qemu-genisoimage-boot.png`](qemu-genisoimage-boot.png). This is the
+  OpenBIOS-proven form; whether Apple OF prefers `load`+`go` vs `boot` with `\\`
+  is the open question the hardware test answers. If the auto-script fails on
+  Apple OF, the disc is still readable (DDM+APM+HFS confirmed) so we can drive it
+  manually from the OF prompt without re-burning.
+
+**Second burn:** ISO is 591 sectors (no padding needed this time). md5
+`cd0c72c892fe659cdb2e8599e2d84239`. Burned with
+`sudo wodim dev=/dev/sr0 -v -dao -eject speed=8 memtestppc.iso` — clean, fixated,
+ejected. Awaiting iBook test.
+
+## Hardware-test procedure (next — task #8, user-driven)
+
+The disc is in opti7050; ibookg32 is a separate machine, so the user must
+physically move the disc to the iBook's slot-loading drive. CD boot has only ever
+been done in QEMU/OpenBIOS — **real Apple OF CD boot is unverified**, so this is
+an experiment. Best-guess boot path, in order:
+1. Insert disc, restart, **hold `C`** at the chime (Apple's boot-from-CD key).
+   Our disc is HFS+ with a CHRP bless (type `tbxi`, creator `chrp` on
+   `/ppc/chrp/bootinfo.txt`, blessed dir `/ppc/chrp`), so Apple OF may pick it up.
+2. If `C` doesn't boot it: **Cmd-Opt-O-F** to the OF prompt, then
+   `boot cd:,\\:tbxi` (boot the blessed tbxi file). Fallbacks:
+   `boot cd:,\ppc\chrp\bootinfo.txt` or check the device alias with `devalias`.
+3. Optional pre-check before walking it over: re-insert in opti7050 and verify
+   the burn read-back: `sudo dd if=/dev/sr0 bs=2048 count=208 2>/dev/null | \
+   cmp - <(head -c 425984 /home/cell/memtestppc+/memtestppc.iso)` → no output = good.
+
 ## What to do next
 
 1. **Decide the release version.** Title bar + `VERSION` still say `0.01`. A
