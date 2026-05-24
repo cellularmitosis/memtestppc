@@ -323,6 +323,15 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   **v2.00 GitHub release** (`cellularmitosis/memtestppc`) with `memtest` +
   `memtestppc.iso` as assets; README download links point at the v2.00 tag.
 
+- 2026-05-24: **Post-release miss caught: the title `+` does not blink.** User
+  noticed the README claimed a "blinking `+`". Upstream sets attr `0xA4` (blink +
+  green bg + red fg) and the VGA *hardware* blinks bit-7 cells for free; our
+  framebuffer has no such hardware and `fb_render_cell` masks bit 7 off, so the
+  `+` renders static red-on-green. A software blink would need a steady timer we
+  do not have (only `do_tick`, irregular). Dropped "and blinking `+`" from the
+  README, and captured the lesson as a reusable VGA-port gotcha in
+  PORTING-GUIDE §3 ("Gotchas when porting VGA text mode to a framebuffer").
+
 ## Next steps — RESUME HERE (v2.00 RELEASED; M2/M3 breadth remain)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is

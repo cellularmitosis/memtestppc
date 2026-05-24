@@ -3,8 +3,8 @@
 A standalone, bootable RAM tester for PowerPC Macs — a faithful, line-by-line
 port of [memtest86+](https://github.com/memtest86plus/memtest86plus/) **v2.00**
 to Open Firmware. It boots with **no operating system**, so the maximum fraction
-of system memory is under test. Same blue-screen TUI, IBM VGA 8x16 font, green
-title bar, and blinking `+` — plus the runtime configuration menu.
+of system memory is under test. Same blue-screen TUI, IBM VGA 8x16 font, and
+green title bar — plus the runtime configuration menu.
 
 ![](docs/media/memtestppc-v2.00.png)
 

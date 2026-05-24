@@ -67,6 +67,33 @@ On PPC there is no text-mode hardware, only a linear framebuffer. So:
   something like `void fb_render_cell(int y, int x);` (reads `vga_buf[y][x]`); add
   a run helper if convenient. Keep this name stable across subagents.
 
+### Gotchas when porting VGA text mode to a framebuffer
+These bite because a linear framebuffer is *dumb* — it has none of the VGA text
+hardware's free behaviors. Each must be reproduced in software or consciously
+dropped:
+
+- **The blink bit (attr bit 7) does nothing on a framebuffer.** On x86, an attr
+  byte with bit 7 set (e.g. the title `+` is `0xA4` = blink + green bg + red fg)
+  blinks *for free* — the VGA CRTC toggles bit-7 cells on a hardware timer, zero
+  CPU. A framebuffer has no such hardware: `fb_render_cell` blits the glyph once,
+  and it extracts the background as `(attr >> 4) & 0x07` — which (correctly, per
+  VGA semantics when blink is enabled) **masks bit 7 off**, so the cell renders
+  *statically* (red-on-green `+`, not blinking). The blink is silently dropped.
+  To actually blink you must animate in software (re-render blink-attr cells on a
+  ~0.5 s cadence) — and that needs a steady timer, which this OF/no-interrupt,
+  poll-driven design does not have (the only periodic hook is `do_tick()`, whose
+  cadence follows test progress). **MISS (session 006):** the README claimed a
+  "blinking `+`" (faithful to upstream's `0xA4` intent) while the port renders it
+  static; the claim was removed. Lesson: any "blink" in the original is free VGA
+  hardware that will *not* survive the port — decide per blink-attr cell whether
+  to animate it or accept static, and don't advertise blink you don't render.
+- **Attr-only changes need an explicit re-render.** `cprint` dedups on the *char*
+  shadow (`screen_buf`), so poking an attribute byte into `vga_buf` *without*
+  changing the char (the green title bar, the reverse footer, error.c's `0x47`
+  red rows) will NOT auto-render — call `fb_render_cell(y,x)` / `display_refresh()`
+  after. (x86 didn't need this: the VGA hardware re-paints from attr; our shadow
+  buffer doesn't.)
+
 ## 4. The PPC substrate (provided; not x86 ports)
 These have no faithful x86 counterpart — they replace the PC platform itself.
 Carried/adapted from `attic/src-v0.01/`:
