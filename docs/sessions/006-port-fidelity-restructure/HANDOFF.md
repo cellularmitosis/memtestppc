@@ -60,11 +60,13 @@ writes a per-file report into this session dir.
    milestone, but the decision is "surface these," recorded now.
 
 ## Open questions parked for later
-- **Footer honesty:** ✅ RESOLVED in Wave 6. `check_input` now wires `c`→
-  `get_config` (works), `^L`→redraw, and SP/CR→scroll-lock toggle (`slock` flips
-  + footer shows `LOCKED`). Remaining nit: `scroll()` does not yet *gate* on
-  `slock`, so scroll-lock shows the indicator but doesn't actually pause the
-  scroll — minor polish (see RESUME #2).
+- **Footer honesty:** ✅ RESOLVED in Wave 6. `check_input` wires `c`→`get_config`
+  (works), `^L`→redraw, and SP/CR→scroll-lock toggle (`slock` flips + footer
+  shows `LOCKED`). Scroll-lock IS functional: `scroll()` honors `slock` verbatim
+  from upstream (`while (slock) check_input();` at lib.c — it blocks before
+  scrolling the next error row in once the error region is full, so you can read
+  the log; Enter clears `slock` to resume). (Earlier note that scroll() didn't
+  gate on slock was wrong — it does.)
 - **Relocation (`reloc.c`):** ✅ RESOLVED — examined and parked N/A
   (`examine-reloc_c.md`); we test in place, non-PIC, no self-reloc.
 - **Bit-fade `sleep()`:** ✅ RESOLVED in Wave 4 — `sleep()` uses the OF timebase
@@ -283,6 +285,21 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   reboots). Redeployed to `ibookg32:/memtest`. (Note: this is process-in-order,
   not flush — a queued `c`/scroll-lock before the ESC is still honored.)
 
+- 2026-05-24: **Reverted the buffer-drain loop — back to upstream's
+  one-event-per-`check_input` structure (fidelity).** On hardware the drain loop
+  made no perceptible difference to the mash-then-ESC latency (the dominant
+  latency is the `do_tick` interval — once per 32 MB chunk — not per-event
+  draining), and it was a structural departure from upstream (which processes one
+  key per call). Since arrow keys are non-functional in v2.00 anyway (no arrow
+  handling exists upstream — error review is the scrolling log + scroll-lock, not
+  arrow nav), the mash-then-ESC case is moot. **Kept** the ESC-vs-escape-sequence
+  disambiguation (necessary OF-platform leaf: the console delivers arrows as
+  multi-byte `ESC [` sequences where upstream's PS/2 path had one scancode).
+  `check_input` is now the single-read + ESC-disambiguation form (== the
+  QEMU-verified state of commit `0311d7a`); rebuilt, re-booted in QEMU (tests run,
+  Errors:0), redeployed to `ibookg32:/memtest`. Also corrected a HANDOFF error:
+  `scroll()` DOES honor `slock` (scroll-lock works).
+
 ## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified; hardware bring-up underway)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is
@@ -300,10 +317,12 @@ tests — do it on hardware).
    `PLAN.md` (held while src/ was mid-rewrite — it is now a runnable release
    candidate, so they should be refreshed to describe the v2.00 port); version
    decision.
-2. **Optional polish (open questions parked above):** scroll-lock actually
-   gating the scroll (currently `slock` flips + footer shows LOCKED, but `scroll()`
-   doesn't yet honor it); reloc.c stays parked; the few `test.c` TO-VERIFYs
-   (movinv32 documented-C vs asm at sval≠0; ad_err2 cast).
+2. **Optional polish (open questions parked above):** reloc.c stays parked; the
+   few `test.c` TO-VERIFYs (movinv32 documented-C vs asm at sval≠0; ad_err2 cast).
+   Possible nicety: arrow-key navigation of the error log — **not** a v2.00
+   feature (v2.00 reviews errors via the scrolling log + scroll-lock, no arrow
+   nav anywhere), so adding it would be a deliberate enhancement beyond the
+   faithful port, not a bug fix.
 
 How to build/test + the `pkill -x` gotcha: see the progress log above and
 PORTING-GUIDE §7. Per-file porting decisions: the `port-*.md` reports in this dir.
