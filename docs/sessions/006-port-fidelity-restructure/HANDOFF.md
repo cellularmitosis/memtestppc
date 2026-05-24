@@ -249,7 +249,28 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   with the screen restored. Evidence: `wave6-config-menu.png`. (Deep getval
   numeric entry for Address Range not exhaustively driven — best on real HW.)
 
-## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified)
+- 2026-05-24: **First real-hardware run on ibookg32 (iBook G3) — mostly great,
+  one bug found + fixed.** Deployed the Wave-6 ELF to `ibookg32:/memtest` (build
+  on opti7050 → uranium → ibookg32; boot via OF `boot hd:3,memtest` — note our
+  test path is **hd:3** `/memtest`, the root HFS+ partition, not hd:5). User
+  reports: the **config menu renders and is functional** with a real keyboard
+  (ADB/USB via OF console), and the **footer scroll-lock is responsive** (SPACE →
+  `LOCKED`, Enter clears). **Bug:** pressing the **Down arrow rebooted the
+  machine**. Cause: arrow/nav keys arrive over the OF console as ANSI escape
+  sequences (`ESC '[' <final>`), and `check_input()` treated the leading `ESC`
+  byte (0x1b) as the "(ESC)Reboot" command. (QEMU/OpenBIOS never surfaced this —
+  I only injected specific keys via `sendkey`.) **Fix (`lib.c`):** in
+  `check_input`, after reading `ESC`, peek for a follow-on byte via a new
+  `read_pending_byte()` (bounded ~20 ms via the OF timebase, latency-independent);
+  if a `[`/`O` sequence follows, drain through its final byte (0x40–0x7e) and
+  ignore — only a *bare* ESC reboots. Rebuilt, QEMU-regression OK (tests run,
+  Errors:0; lone-ESC still reboots — verified via `sendkey esc`), redeployed to
+  `ibookg32:/memtest` (md5 matches). **User to re-confirm on hardware that the
+  Down arrow no longer reboots.** Known minor follow-up: in the *config menu*,
+  arrow keys still go through `get_key()` (no draining there) and inject mapped
+  junk into `getval()` numeric entry — harmless, not the reported bug.
+
+## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified; hardware bring-up underway)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is
 classified (ported or ⛔/parked with a report). The engine compiles, links (13

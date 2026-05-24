@@ -654,6 +654,29 @@ int get_key() {
  * honesty"). check_input() is called from scroll() and do_tick(), so it must
  * exist and be cheap — a single ofw_read of one byte is.
  */
+/* PPC: read one more byte from the OF console if one is (about to be) pending.
+ * Used to disambiguate a lone ESC from a multi-byte escape sequence (arrow /
+ * nav / function keys arrive as ESC '[' <final> etc.). The sequence bytes are
+ * co-queued with the ESC, so this normally returns on the first read; the short
+ * wall-clock deadline (via the OF timebase) only bounds the lone-ESC case so a
+ * genuine ESC reboot isn't delayed by more than ~20 ms. Latency-independent —
+ * does not assume a fixed per-read cost. */
+static int read_pending_byte(ofw_ihandle_t ih, unsigned char *c)
+{
+	unsigned long freq = ofw_get_timebase_freq();
+	unsigned long deadline = freq / 50;	/* ~20 ms in timebase ticks */
+	unsigned long start = mftb();
+
+	for (;;) {
+		if (ofw_read(ih, c, 1) > 0) {
+			return 1;
+		}
+		if ((mftb() - start) > deadline) {
+			return 0;
+		}
+	}
+}
+
 void check_input(void)
 {
 	/* PPC: cache the stdin ihandle across calls (it never changes). */
@@ -677,14 +700,39 @@ void check_input(void)
 		return;
 	}
 
-	switch (ch) {
-	case 27:
-		/* PPC: "ESC" key was pressed, bail out and reboot. */
+	if (ch == 27) {
+		/* A lone ESC means "reboot" (the footer advertises it). But the arrow
+		 * keys (and other navigation/function keys) arrive over the OF console
+		 * as an ANSI escape sequence — ESC '[' <final> (CSI) or ESC 'O' <final>
+		 * (SS3) — so the first byte of e.g. Down-arrow is ESC. Without this,
+		 * pressing an arrow rebooted the machine. If a sequence follows the ESC,
+		 * drain and ignore it; only a *bare* ESC reboots. */
+		unsigned char c2;
+		if (read_pending_byte(stdin_ih, &c2)) {
+			if (c2 == '[' || c2 == 'O') {
+				/* CSI/SS3 — consume through the final byte (0x40..0x7e),
+				 * which also covers longer forms like ESC '[' '3' '~'. */
+				unsigned char cf;
+				int k;
+				for (k = 0; k < 8; k++) {
+					if (!read_pending_byte(stdin_ih, &cf)) {
+						break;
+					}
+					if (cf >= 0x40 && cf <= 0x7e) {
+						break;
+					}
+				}
+			}
+			return;	/* navigation/function key — not a reboot */
+		}
+		/* Bare ESC -> reboot. */
 		cprint(LINE_RANGE, COL_MID+23, "Halting... ");
 		ofw_reset();
 		/* ofw_reset() should not return; loop just in case. */
 		while (1) { }
-		break;
+	}
+
+	switch (ch) {
 	/* PPC: the footer advertises these keys (Wave 6 wires them up — config.c
 	 * is now ported and get_key() is OF-backed). 'c' opens the config menu;
 	 * SP/CR toggle scroll-lock; ^L redraws. */
