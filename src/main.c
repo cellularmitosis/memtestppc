@@ -166,16 +166,6 @@ void do_tick(void)
 
     update_time();
 
-    /* DEBUG: inject a fake error every ~10 seconds */
-    {
-        static unsigned long next_fake_err = 10;
-        unsigned long secs = elapsed_seconds();
-        if (secs >= next_fake_err) {
-            next_fake_err = secs + 10;
-            error((ulong *)0x00C0FFEE, 0xDEADBEEF, 0xBADCAFE0 + (unsigned long)secs);
-        }
-    }
-
     check_key();
 }
 
@@ -195,9 +185,9 @@ void error(ulong *adr, ulong good, ulong bad)
 
     scroll();
 
-    /* Set error line to red text on blue background (0x1C) */
+    /* Set error line to white text on red background (0x47) — matches memtest86+ v5.01 */
     for (i = 0; i < SCREEN_WIDTH; i++)
-        vga_buf[(v_msg_line * SCREEN_WIDTH + i) * 2 + 1] = 0x1C;
+        vga_buf[(v_msg_line * SCREEN_WIDTH + i) * 2 + 1] = 0x47;
 
     hprint(v_msg_line, 1, (ulong)adr);
     hprint(v_msg_line, 15, good);
