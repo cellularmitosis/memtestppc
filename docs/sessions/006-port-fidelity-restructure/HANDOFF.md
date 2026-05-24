@@ -95,10 +95,12 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 | main.c | ✅ (throwaway) | Wave-0 smoke-test stub — draws title/body/palette/footer to verify the fb. **Replaced by ported v2.00 main.c in Wave 5.** |
 | Makefile | ✅ | OBJS = head, ofw, display, main; grows per wave |
 
-### Wave 1 — headers
-| test.h | ☐ | full struct vars + layout #defines; PPC adaptations |
-| config.h | ☐ | #undef PC features |
-| stdint.h, defs.h, elf.h | ☐ | as needed |
+### Wave 1 — headers — ✅ DONE, cross-compiler syntax-checked
+| test.h | ✅ | report `port-test_h.md`. Verbatim v2.00; full 29-field struct vars restored; includes ppc.h + display.h; SCREEN_ADR=vga_buf (0xb8000 def commented); commented x86 leaves (getCx86, cache_on/off, reboot, struct cpu_ident). |
+| config.h | ✅ | report `port-config_h.md`. PARITY_MEM/APM_OFF/USB_WAR commented; serial/beep flags kept *defined* at inert values (lib.c #if/#error guards need them). |
+| stdint.h | ✅ | imported; ILP32 BE PPC matches x86 widths, no changes. |
+| defs.h | ✅ | all x86 real-mode boot/GDT/reloc — whole body `#if 0`'d. |
+| elf.h | ☐ | not needed yet (examine in Wave 6 if anything references it). |
 
 ### Wave 2 — display/string core
 | screen_buffer.c/.h | ☐ | char shadow + tty_print_line/region |
@@ -142,14 +144,42 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   bar, light-gray-on-blue body, the 16-color palette row, and the reverse-video
   footer — confirming OF fb discovery, palette, 8x16 font blit, and the
   `vga_buf → fb_render_cell` contract. Evidence: `wave0-smoke-test.png`.
+- 2026-05-24: **Wave 1 (headers) done, cross-compiler syntax-checked.** Two
+  subagents ported `test.h` (port-test_h.md) and `config.h`+`stdint.h`+`defs.h`
+  (port-config_h.md). Reading the real v2.00 source corrected several v5.01-era
+  assumptions — see "v2.00 facts that bite later waves" below. `test.h`+`config.h`
+  compile clean (`-fsyntax-only`) on `powerpc-linux-gnu-gcc`.
 
 ## Next steps
-1. **Wave 1:** fan out subagents to port `test.h` (#2) and `config.h`+small
-   headers (#3), per PORTING-GUIDE. test.h is the big one (struct vars, layout
-   #defines, prototypes; include ppc.h; comment x86 cache/IO asm).
-2. Then Wave 2 (`screen_buffer`, `lib.c` ← the ttyprint→fb_render_cell wiring,
-   `random.c`), building at the checkpoint.
-3. Keep this file's file-status table + progress log current as each file lands.
+1. **Wave 2:** fan out subagents — `screen_buffer.{c,h}` (#4), `lib.c` (#5, the
+   key ttyprint→fb_render_cell wiring + comment the x86 interrupt/`inter`/serial/
+   keyboard/cache leaf), `random.c` (#6). Then build-checkpoint (these + the
+   substrate should link a small image, perhaps with a tiny driver, or wait for
+   Wave 3-5 to get a full main).
+2. Then Wave 3 (`init.c`, `memsize.c`), Wave 4 (`error.c`, `test.c`), Wave 5
+   (`main.c`, `reloc.c`), Wave 6 (examine PC-platform files).
+3. Keep this file's file-status table + progress log + "v2.00 facts" current.
+
+## v2.00 facts that bite later waves (learned porting the headers — NOT v5.01!)
+- **Test routines are already cpu-free** in v2.00 — no trailing `int cpu` arg. No
+  signature stripping needed (that was a v5.01-ism).
+- **Single `void bit_fade(void)`** — NOT the `bit_fade_fill`/`bit_fade_chk` split
+  (that split was the old hack's invention). Wave-4 test.c defines `bit_fade()`;
+  Wave-5 main.c `do_test` calls it; the tseq bit-fade row maps to it.
+- **`struct tseq` = `{short cache; short pat; short iter; short ticks; short errors;
+  char *msg;}`** — different fields *and* `pat` numbering from v5.01/the hack. The
+  Wave-5 tseq table, `next_test`, `find_ticks`, and `do_test`'s `switch(pat)` all
+  follow v2.00's shape. Re-read v2.00 main.c/test.c for the real pat numbers.
+- **config.h:** serial/beep flags stay *defined* at inert values (0) — the actual
+  serial/beep leaf code is commented when porting lib.c/init.c/error.c, not via
+  config.h. `BEEP_END_NO_ERROR`/`CONSERVATIVE_SMP` don't exist in v2.00.
+- **defs.h body is `#if 0`'d** — `LOW_TEST_ADR`/`INITSEG`/segment defs are gone, so
+  the Wave-5 main.c port MUST comment the x86 reloc/cmdline paths that use them or
+  it won't resolve.
+- **`struct eregs`** is only forward-declared in test.h; its real def + `inter()`
+  (x86 interrupt handler) live in lib.c — Wave-2 lib.c port should comment that
+  whole x86 interrupt path (N/A on PPC/OF). `SCREEN_END_ADR` is not provided; add
+  to display.h only if a consumer appears.
 
 ## Substrate contract (for downstream waves — do not break)
 - `vga_buf[]` (in `display.c`) is `SCREEN_ADR`: 80×25×2 char+attr.
@@ -157,5 +187,12 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   blits the glyph) and `int display_init(void)` / `void display_refresh(void)`.
 - Wave-2 `lib.c`: keep `cprint`/`scroll`/etc. verbatim; rewrite **only** `ttyprint`
   to loop `fb_render_cell` over its (y,x,text) run; stub `serial_echo_*`.
+- **Attr-only changes need an explicit render.** `cprint` routes through
+  `tty_print_line`, which dedups on the *char* shadow (`screen_buf`) — so code that
+  poke attribute bytes directly into `vga_buf` WITHOUT changing the char (init.c's
+  green title bar / reverse footer; error.c's `0x47` red rows) will NOT auto-render.
+  Those sites must call `fb_render_cell(y,x)` (or `display_refresh()`) explicitly
+  after poking the attr. (x86 didn't need this — VGA hardware re-paints from attr;
+  our shadow buffer doesn't.) The old hack port did exactly this in `error()`.
 - PPC intrinsics in `ppc.h`. OF facilities via `ofw.{c,h}`.
 - Framebuffer is 800×600 under QEMU OpenBIOS (8/32-bit paths both handled).
