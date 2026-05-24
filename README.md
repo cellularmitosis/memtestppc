@@ -16,11 +16,11 @@ Two methods:
 
 ### Boot the CD-ROM
 
-Burn and boot [memtestppc.iso](artifacts/memtestppc.iso) (hold the `c` key at the startup chime)
+Burn and boot [memtestppc.iso](https://github.com/cellularmitosis/memtestppc/releases/download/v0.01/memtestppc.iso) (hold the `c` key at the startup chime)
 
 ### Use OpenFirmware
 
-- Copy the [ELF binary](artifacts/memtest) to your hard drive as `/memtest` (right beside `/mach_kernel`)
+- Copy the [ELF binary](https://github.com/cellularmitosis/memtestppc/releases/download/v0.01/memtest) to your hard drive as `/memtest` (right beside `/mach_kernel`)
 - Boot into OpenFirmware (hold option + command + `o` + `f` at the startup chime)
 - Enter `boot hd:3,memtest` if using the first partition, `boot hd:5,memtest` if using the second partition, etc.
 - Note: this is just a single-shot.  When you reboot, OpenFirware will resume using `/mach_kernel` and boot into Tiger/Leopard.
