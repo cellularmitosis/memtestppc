@@ -15,7 +15,11 @@ CFLAGS = -Wall -O1 -ffreestanding -fno-builtin -nostdlib \
 LIBGCC = $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 LDFLAGS = -T src/linker.ld -nostdlib -N
 
-OBJS = src/head.o src/main.o src/display.o src/test.o src/ofw.o
+# Wave 0 (substrate) object set. Grows as upstream v2.00 files are ported:
+# Wave 1 test.h/config.h; Wave 2 screen_buffer/lib/random; Wave 3 init/memsize;
+# Wave 4 error/test; Wave 5 main (replaces the smoke-test stub). See
+# docs/sessions/006-port-fidelity-restructure/HANDOFF.md.
+OBJS = src/head.o src/ofw.o src/display.o src/main.o
 
 all: memtestppc.elf memtestppc.bin
 
@@ -28,16 +32,14 @@ memtestppc.bin: memtestppc.elf
 src/head.o: src/head.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/main.o: src/main.c src/memtest.h src/display.h src/ofw.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-src/display.o: src/display.c src/display.h src/font_vga.h src/ofw.h src/memtest.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-src/test.o: src/test.c src/memtest.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
 src/ofw.o: src/ofw.c src/ofw.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+src/display.o: src/display.c src/display.h src/font_vga.h src/ofw.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Throwaway smoke-test stub; replaced by the ported v2.00 main.c in Wave 5.
+src/main.o: src/main.c src/display.h src/ofw.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:

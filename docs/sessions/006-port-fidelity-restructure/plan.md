@@ -1,5 +1,15 @@
 # Session 006 — plan: port-fidelity restructure (M1)
 
+> **⚠ SUPERSEDED IN PART (2026-05-24).** This plan was written assuming a **v5.01**
+> base. The session then pivoted to a **v2.00 base** with an *import-everything,
+> examine-every-file* discipline. For the current approach read
+> [`HANDOFF.md`](HANDOFF.md) + [`PORTING-GUIDE.md`](PORTING-GUIDE.md). The parts of
+> this doc that remain valid and useful: the **rendering architecture**
+> (ttyprint→framebuffer), the **divergence inventory** (display/error/do_tick/
+> struct-vars analysis), and the general staging philosophy. Ignore the v5.01-base
+> assumptions, the SMP-commenting discussion (v2.00 has no SMP), and the "files we
+> don't copy" framing (we now import everything).
+
 **Status:** research complete; plan revised after user direction on fidelity bar.
 Not yet started on code. This file is the working plan; it folds into
 `HANDOFF.md` at closeout.
