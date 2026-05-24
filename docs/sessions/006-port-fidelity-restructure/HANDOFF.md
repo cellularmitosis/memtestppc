@@ -300,6 +300,19 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   Errors:0), redeployed to `ibookg32:/memtest`. Also corrected a HANDOFF error:
   `scroll()` DOES honor `slock` (scroll-lock works).
 
+- 2026-05-24: **Cosmetic fix — CPU clock showed "MH" instead of "MHz."** User
+  spotted it on hardware. Port bug (not upstream): `cpu_type()` (init.c) drew the
+  clock with `cprint(LINE_CPU, 20, "      MHz")`, whose trailing 'z' landed at
+  col 28 — exactly where `init()` draws the vertical divider `"| "` (COL_MID-2),
+  which is drawn *after* `cpu_type()` and overwrote the 'z'. (Upstream positioned
+  the MHz string dynamically just past the CPU name via `off`, so it never
+  collided.) Fix: moved the clock to col 18 so 'z' ends at col 26 with a space
+  before the divider. QEMU-verified: now reads "PowerPC 7400 (G4)   900 MHz".
+  artifacts/ refreshed + committed. **NOT yet redeployed to ibookg32 — the iBook
+  went offline mid-session (No route to host / timeout; likely sitting at the OF
+  prompt or running /memtest, where sshd is down). Redeploy `artifacts/memtest`
+  → `ibookg32:/memtest` once it is back in Tiger.**
+
 ## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified; hardware bring-up underway)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is

@@ -642,8 +642,15 @@ void cpu_type(void)
 	 * fixed column past the longest CPU name string. extclock is recorded for
 	 * parity with the original (which stored the measured speed there). */
 	if (mhz) {
-		cprint(LINE_CPU, 20, "      MHz");
-		dprint(LINE_CPU, 20, mhz, 5, 0);
+		/* Place "<mhz> MHz" so the trailing 'z' clears the vertical divider that
+		 * init() draws at COL_MID-2 (=col 28). At col 20 the 9-char "      MHz"
+		 * ended at col 28, and the divider '|' (drawn after cpu_type) overwrote
+		 * the 'z' — the clock showed "MH". Col 18 ends the 'z' at col 26, leaving
+		 * a space before the divider. (Upstream positioned this just past the CPU
+		 * name via a dynamic `off`; we use a fixed column past the longest PPC
+		 * name.) */
+		cprint(LINE_CPU, 18, "      MHz");
+		dprint(LINE_CPU, 18, mhz, 5, 0);
 		extclock = mhz;
 	}
 
