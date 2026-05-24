@@ -1,0 +1,8 @@
+<CHRP-BOOT>
+<DESCRIPTION>memtestppc+</DESCRIPTION>
+<OS-BADGE-ICONS>0</OS-BADGE-ICONS>
+<BOOT-SCRIPT>
+load cd:,\memtestppc.elf
+go
+</BOOT-SCRIPT>
+</CHRP-BOOT>
