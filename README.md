@@ -23,7 +23,7 @@ partition boot on a real iBook). No releases yet.
 | 8-bit framebuffer + palette | ✅ Working | Real iBook G3 (ATI Rage Mobility); Apple OF `color!` palette setup. |
 | CPU identification (PVR → G3/G4/G5) | ✅ Working | Plus cache sizes from the OF device tree. |
 | Memory discovery + test | ✅ Working | Claims RAM from OF in 1 MB chunks (~244 MB of 256 on the iBook). |
-| Error display (white-on-red) | 🟡 Partial | Implemented; not yet visually verified on real hardware. |
+| Error display (white-on-red) | 🟡 Partial | Full-row red verified in QEMU; not yet seen on real 8-bit hardware. |
 | Bit-fade test (test 11) | 🟡 Partial | Runs, but the timed fade window is stubbed out (no `sleep()` yet). |
 | Physical CD boot | ❌ Not yet | The ISO has only ever been booted in QEMU. |
 

@@ -416,5 +416,5 @@ void clear_scroll(void)
 
 void footer(void)
 {
-    cprint(24, 0, "(ESC)reboot  (c)configuration  (SP)scroll_lock  (CR)scroll_unlock");
+    cprint(24, 0, "<ESC> reboot");
 }

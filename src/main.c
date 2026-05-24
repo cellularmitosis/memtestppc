@@ -146,8 +146,8 @@ void do_tick(void)
         if (pct > 100) pct = 100;
         bars = (pct * BAR_SIZE) / 100;
         for (i = 0; i < bars && i < BAR_SIZE; i++)
-            cprint(2, COL_MID + 8 + i, "#");
-        dprint(2, COL_MID + 5, pct, 3, 0);
+            cprint(2, COL_MID + 9 + i, "#");
+        dprint(2, COL_MID + 4, pct, 3, 0);
     }
 
     /* Update pass progress bar (line 1) */
@@ -156,8 +156,8 @@ void do_tick(void)
         if (pct > 100) pct = 100;
         bars = (pct * BAR_SIZE) / 100;
         for (i = 0; i < bars && i < BAR_SIZE; i++)
-            cprint(1, COL_MID + 8 + i, "#");
-        dprint(1, COL_MID + 5, pct, 3, 0);
+            cprint(1, COL_MID + 9 + i, "#");
+        dprint(1, COL_MID + 4, pct, 3, 0);
     }
 
     /* Spinner */
@@ -185,9 +185,16 @@ void error(ulong *adr, ulong good, ulong bad)
 
     scroll();
 
-    /* Set error line to white text on red background (0x47) — matches memtest86+ v5.01 */
-    for (i = 0; i < SCREEN_WIDTH; i++)
+    /*
+     * Paint the whole error row white-on-red (attr 0x47), matching
+     * memtest86+ v5.01 (error.c, cols 1..76). Our vga_buf is a shadow
+     * buffer — unlike x86's memory-mapped VGA, the color only appears once
+     * we re-render each cell, so do that here before printing the fields.
+     */
+    for (i = 1; i <= 76; i++) {
         vga_buf[(v_msg_line * SCREEN_WIDTH + i) * 2 + 1] = 0x47;
+        display_render_cell(v_msg_line, i);
+    }
 
     hprint(v_msg_line, 1, (ulong)adr);
     hprint(v_msg_line, 15, good);
@@ -402,6 +409,7 @@ static void draw_screen(void)
     cprint(2, 0, "L1 Cache: Unknown ");
     cprint(3, 0, "L2 Cache: Unknown ");
     cprint(4, 0, "Memory  :         ");
+    cprint(5, 0, "Testing :         ");
 
     /* Vertical separator */
     for (i = 0; i < 6; i++) {
@@ -452,8 +460,9 @@ static void draw_screen(void)
         dprint(3, 10, l2_cache_kb, 4, 0);
     }
 
-    /* Memory size */
-    aprint(4, 10, v->test_pages);
+    /* Installed RAM (line 4) vs. amount we claimed to test (line 5) */
+    aprint(4, 9, total_mem_mb << 8);   /* MB -> 4K pages */
+    aprint(5, 9, v->test_pages);
 
     /* Footer */
     footer();
@@ -672,7 +681,7 @@ int main(void)
         cprint(LINE_PAT, COL_PAT, "            ");
 
         /* Clear progress bar */
-        cprint(2, COL_MID + 8, "                                         ");
+        cprint(2, COL_MID + 9, "                                         ");
 
         /* Set up memory segments for testing */
         segs = setup_segments();
@@ -706,7 +715,7 @@ int main(void)
             /* Reset pass progress for next pass */
             total_ticks = 0;
             calc_pass_ticks();
-            cprint(1, COL_MID + 8, "                                         ");
+            cprint(1, COL_MID + 9, "                                         ");
 
             if (v->ecount == 0) {
                 cprint(LINE_MSG, COL_MSG - 8,
