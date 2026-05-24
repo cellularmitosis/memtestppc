@@ -102,10 +102,10 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 | defs.h | ✅ | all x86 real-mode boot/GDT/reloc — whole body `#if 0`'d. |
 | elf.h | ☐ | not needed yet (examine in Wave 6 if anything references it). |
 
-### Wave 2 — display/string core
-| screen_buffer.c/.h | ☐ | char shadow + tty_print_line/region |
-| lib.c | ☐ | print primitives + str/mem; ttyprint→fb leaf |
-| random.c | ☐ | near-verbatim (pure C) |
+### Wave 2 — display/string core — ✅ DONE, QEMU-verified (render path end-to-end)
+| screen_buffer.c/.h | ✅ | report `port-screen_buffer.md`. Byte-verbatim (platform-neutral char shadow + tty_print_line/region). |
+| lib.c | ✅ | report `port-lib_c.md`. ttyprint→fb_render_cell loop (the one key edit); print/str/mem kept verbatim; check_input→OF stdin poll (ESC→ofw_reset); set_cache PPC stub (uncached-test TO-VERIFY); inter/get_key/getval/ser_map/serial_* commented; serial_echo_init stub keeps clear_screen_buf(). Caller audit: clean for Waves 2-5; Wave-5 main.c must comment the serial_console_setup(cmdline) call. |
+| random.c | ✅ | report `port-random_c.md`. Byte-verbatim MWC RNG, pure C; seeding is at call sites (Wave 4/5). Minor: test.h declares `ulong rand()` vs random.c's `unsigned int` — ABI-identical on ILP32 BE; kept standalone to avoid redecl. |
 
 ### Wave 3 — screen + detection
 | init.c | ☐ | header draw verbatim (Memtestppc); PPC cpu/cache/mem |
@@ -149,6 +149,19 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   (port-config_h.md). Reading the real v2.00 source corrected several v5.01-era
   assumptions — see "v2.00 facts that bite later waves" below. `test.h`+`config.h`
   compile clean (`-fsyntax-only`) on `powerpc-linux-gnu-gcc`.
+- 2026-05-24: **Wave 2 (display/string core) done and QEMU-verified end-to-end.**
+  Three subagents: `lib.c` (port-lib_c.md, the ttyprint→fb_render_cell rewrite +
+  check_input→OF + x86 leaf commented), `screen_buffer.{c,h}` (verbatim),
+  `random.c` (verbatim). Integrated into the Makefile; only undefined symbol at
+  link was `v` (defined in the checkpoint stub; real def comes with main.c, Wave
+  5). Built ISO, booted QEMU mac99 256MB: the **verbatim** `cprint`/`dprint`/
+  `hprint`/`aprint`/`footer` all render correctly through the unchanged
+  `cprint → tty_print_line → ttyprint → fb_render_cell` chain (evidence:
+  `wave2-render-check.png`). The print core is proven; later waves can rely on it.
+  - **QEMU gotcha (recorded):** never `pkill -f qemu-system-ppc` from an ssh
+    command — `-f` matches the full cmdline, including the ssh shell *running the
+    pkill* (its cmdline contains the string), so it kills its own session →
+    exit 255. Use `pkill -9 -x qemu-system-ppc` (match process name, not cmdline).
 
 ## Next steps
 1. **Wave 2:** fan out subagents — `screen_buffer.{c,h}` (#4), `lib.c` (#5, the

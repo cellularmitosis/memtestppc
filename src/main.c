@@ -1,26 +1,24 @@
 /*
- * WAVE 0 SMOKE TEST — throwaway. Replaced by the real ported memtest86+ v2.00
- * main.c in Wave 5.
+ * WAVE 2 CHECKPOINT STUB — throwaway. Replaced by the real ported memtest86+
+ * v2.00 main.c in Wave 5.
  *
- * Purpose: prove the PPC framebuffer substrate (OF framebuffer discovery,
- * palette setup, 8x16 font blit, the vga_buf -> fb_render_cell contract) lights
- * up a real screen under QEMU/OF before any memtest code exists. It writes
- * directly into vga_buf (cprint/lib.c don't exist yet) and refreshes.
+ * Purpose: prove the Wave-2 rendering core end to end — that the VERBATIM
+ * upstream print primitives (cprint/dprint/hprint/aprint/footer in lib.c) reach
+ * the framebuffer through the unchanged path cprint -> tty_print_line
+ * (screen_buffer.c) -> ttyprint (lib.c, the one rewritten leaf) -> fb_render_cell
+ * (display.c). Also exercises the attr-poke -> explicit fb_render_cell path used
+ * by init.c/error.c for the title/footer bars.
+ *
+ * Defines `v` (struct vars) here because lib.c references it; the real main.c
+ * owns this global in Wave 5.
  */
 
+#include "test.h"
 #include "display.h"
 #include "ofw.h"
 
-/* Local cell writer — stands in for cprint until lib.c is ported in Wave 2. */
-static void put(int row, int col, const char *s, unsigned char attr)
-{
-    int i;
-    for (i = 0; s[i] && (col + i) < SCREEN_WIDTH; i++) {
-        unsigned char *cell = &vga_buf[(row * SCREEN_WIDTH + col + i) * 2];
-        cell[0] = (unsigned char)s[i];
-        cell[1] = attr;
-    }
-}
+struct vars variables;
+struct vars * const v = &variables;
 
 int main(void)
 {
@@ -32,29 +30,31 @@ int main(void)
         for (;;) ;
     }
 
-    /* Green title bar (attr 0x20 = black on green), like the real TUI. */
+    /* Green title bar: poke attr 0x20 across the row, render it (attr-only
+     * change needs an explicit render), then cprint the title over it. */
     for (i = 0; i < SCREEN_WIDTH; i++)
         vga_buf[(0 * SCREEN_WIDTH + i) * 2 + 1] = 0x20;
-    put(0, 2, "memtestppc+ : Wave 0 framebuffer smoke test", 0x20);
+    for (i = 0; i < SCREEN_WIDTH; i++)
+        fb_render_cell(0, i);
+    cprint(0, 2, "memtestppc+ : Wave 2 lib.c render-path check");
 
-    /* Body text in memtest86+'s light-gray-on-blue (0x17). */
-    put(2, 2, "If you can read this, the OF framebuffer + 8x16 font work.", 0x17);
-    put(3, 2, "vga_buf -> fb_render_cell contract is live. Substrate OK.", 0x17);
+    /* The actual proof: verbatim cprint/dprint/hprint/aprint via ttyprint. */
+    cprint(2, 2, "cprint -> tty_print_line -> ttyprint -> fb_render_cell:");
+    cprint(3, 4, "If you can read this, the VERBATIM print path works.");
 
-    /* Palette check: 16 cells, fg color 0..F on a blue background. */
-    put(5, 2, "Palette 0-F:", 0x17);
-    for (i = 0; i < 16; i++) {
-        unsigned char *cell = &vga_buf[(5 * SCREEN_WIDTH + 15 + i) * 2];
-        cell[0] = "0123456789ABCDEF"[i];
-        cell[1] = (unsigned char)(0x10 | i); /* blue bg, fg = i */
-    }
+    cprint(5, 2, "dprint 12345 =");
+    dprint(5, 18, 12345, 5, 0);
+    cprint(6, 2, "hprint 0xdeadbeef =");
+    hprint(6, 22, 0xdeadbeef);
+    cprint(7, 2, "aprint 0x4000 pages =");
+    aprint(7, 24, 0x4000);
 
-    /* Reverse-video bottom line (attr 0x71) to exercise that path. */
+    /* Reverse-video footer bar (attr 0x71) + the verbatim v2.00 footer() text. */
     for (i = 0; i < SCREEN_WIDTH; i++)
         vga_buf[(24 * SCREEN_WIDTH + i) * 2 + 1] = 0x71;
-    put(24, 2, "<this row is reverse-video 0x71>", 0x71);
-
-    display_refresh();
+    for (i = 0; i < SCREEN_WIDTH; i++)
+        fb_render_cell(24, i);
+    footer();
 
     for (;;) ;
     return 0;
