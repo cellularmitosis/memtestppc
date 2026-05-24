@@ -308,12 +308,22 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   the MHz string dynamically just past the CPU name via `off`, so it never
   collided.) Fix: moved the clock to col 18 so 'z' ends at col 26 with a space
   before the divider. QEMU-verified: now reads "PowerPC 7400 (G4)   900 MHz".
-  artifacts/ refreshed + committed. **NOT yet redeployed to ibookg32 — the iBook
-  went offline mid-session (No route to host / timeout; likely sitting at the OF
-  prompt or running /memtest, where sshd is down). Redeploy `artifacts/memtest`
-  → `ibookg32:/memtest` once it is back in Tiger.**
+  artifacts/ refreshed + committed (c48cc7d). The iBook briefly went offline
+  (No route to host — it was at the OF prompt / running /memtest, sshd down), then
+  came back in Tiger; `artifacts/memtest` (md5 1794535…) redeployed to
+  `ibookg32:/memtest` — verified matching. User to re-confirm "MHz" on hardware.
 
-## Next steps — RESUME HERE (Waves 0–6 DONE + QEMU-verified; hardware bring-up underway)
+- 2026-05-24: **Cut the v2.00 release.** Hardware-confirmed the MHz fix on the
+  iBook. Captured the README hero on QEMU `mac99 -cpu 750` — authentic "PowerPC
+  750 (G3) 900 MHz" (the 900 MHz iBook G3 is the fastest G3 ever shipped; not
+  g3beige, which is Old World and not our New World boot target) — saved to
+  `docs/media/memtestppc-v2.00.png`. Refreshed README (v2.00 intro/hero/status
+  table/links) and PLAN (M1 done, v2.00, roadmap). Built a clean ISO, refreshed
+  `artifacts/` (memtest md5 1794535…). Committed, pushed origin/main, and cut the
+  **v2.00 GitHub release** (`cellularmitosis/memtestppc`) with `memtest` +
+  `memtestppc.iso` as assets; README download links point at the v2.00 tag.
+
+## Next steps — RESUME HERE (v2.00 RELEASED; M2/M3 breadth remain)
 
 State on exit: **the whole v2.00 import is complete.** Every upstream file is
 classified (ported or ⛔/parked with a report). The engine compiles, links (13
