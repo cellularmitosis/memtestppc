@@ -59,8 +59,8 @@ src/error.o: src/error.c src/test.h src/display.h src/ofw.h src/ppc.h src/config
 src/test.o: src/test.c src/test.h src/ppc.h src/ofw.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Throwaway smoke-test stub; replaced by the ported v2.00 main.c in Wave 5.
-src/main.o: src/main.c src/display.h src/ofw.h
+# Ported v2.00 main.c: tseq[], do_test loop, find_ticks, flat in-place paging.
+src/main.o: src/main.c src/test.h src/defs.h src/display.h src/ofw.h src/ppc.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:

@@ -601,8 +601,17 @@ void movinv1(int iter, ulong p1, ulong p2)
 			p = end -1;
 			done = 0;
 			do {
-				/* Check for underflow */
-				if (pe - SPINSZ < pe) {
+				/* x86: this underflow guard relied on pointer-arithmetic
+				 * wraparound — `pe - SPINSZ` underflowing below address 0 becomes
+				 * a huge value, so `< pe` is false and the else clamps to start.
+				 * That is undefined behavior; powerpc-linux-gnu-gcc -O1 folds
+				 * `pe - SPINSZ < pe` to always-true, killing the clamp. So for a
+				 * segment whose start is below SPINSZ (e.g. our low 8 MB seg) the
+				 * reverse walk steps past the bottom, wraps to ~0xFFFFFFFF, and
+				 * never satisfies `pe <= start` (the SPINSZ stride skips [0,start])
+				 * -> infinite do_tick loop. PPC: underflow-safe check using the
+				 * byte distance to start (well-defined; in-segment pe >= start). */
+				if ((ulong)pe - (ulong)start >= (ulong)SPINSZ * sizeof(ulong)) {
 					pe -= SPINSZ;
 				} else {
 					pe = start;
@@ -888,8 +897,17 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 			pe = end -1;
 			done = 0;
 			do {
-				/* Check for underflow */
-				if (pe - SPINSZ < pe) {
+				/* x86: this underflow guard relied on pointer-arithmetic
+				 * wraparound — `pe - SPINSZ` underflowing below address 0 becomes
+				 * a huge value, so `< pe` is false and the else clamps to start.
+				 * That is undefined behavior; powerpc-linux-gnu-gcc -O1 folds
+				 * `pe - SPINSZ < pe` to always-true, killing the clamp. So for a
+				 * segment whose start is below SPINSZ (e.g. our low 8 MB seg) the
+				 * reverse walk steps past the bottom, wraps to ~0xFFFFFFFF, and
+				 * never satisfies `pe <= start` (the SPINSZ stride skips [0,start])
+				 * -> infinite do_tick loop. PPC: underflow-safe check using the
+				 * byte distance to start (well-defined; in-segment pe >= start). */
+				if ((ulong)pe - (ulong)start >= (ulong)SPINSZ * sizeof(ulong)) {
 					pe -= SPINSZ;
 				} else {
 					pe = start;

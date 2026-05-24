@@ -191,3 +191,47 @@ from upstream):
 - **From ofw.{c,h} (substrate):** `ofw_get_timebase_freq`.
 - `BAILR`, `SPINSZ`, `MOD_SZ` from test.h; `USB_WAR` (undefined → the
   `#ifdef USB_WAR` low-memory guards stay compiled out, correct for PPC).
+
+## Wave-5 fix — reverse-pass underflow guard (lead integration fix)
+
+When Wave 5 first ran these routines over real memory, `movinv1` spun forever on
+test #2 (do_tick called unboundedly; progress %s overflowed). Per-phase counters
+localized it to the **reverse pass**, and the segment map (`M0=[8MB,64MB]`,
+`M1=[72MB,252MB]`) explained why.
+
+**Root cause.** The reverse chunk loop's underflow guard, kept verbatim from
+upstream in both `movinv1` (~line 631) and `movinv32` (~line 919):
+```c
+if (pe - SPINSZ < pe) { pe -= SPINSZ; } else { pe = start; }   /* then: if (pe <= start) {pe=start; done++;} */
+```
+relies on **pointer-arithmetic underflow wraparound**: when `pe` (a
+`volatile ulong *`) is within SPINSZ of address 0, `pe - SPINSZ` underflows below
+0 and becomes a huge value, so `pe - SPINSZ < pe` is false and the `else` clamps
+`pe = start`. Computing a pointer before the start of its object is **undefined
+behavior**, and `powerpc-linux-gnu-gcc 12 -O1` folds `pe - SPINSZ < pe` to a
+constant `true` — so the `else` clamp is dead code. For any segment whose `start`
+is below the SPINSZ stride (32 MB = `SPINSZ * sizeof(ulong)`) — our low 8 MB
+`seg0` — the reverse walk steps `pe` past the bottom, it wraps to ~`0xFFFFFFFF`,
+and the 32 MB stride **skips over `[0, start]`**, so `pe <= start` is never
+satisfied → infinite `do_tick` loop, with each tick firing an `ofw_read` (hence
+also the apparent hang).
+
+**Fix.** Replaced the UB guard (both sites) with an underflow-safe byte-distance
+test — well-defined because `pe >= start` inside the segment:
+```c
+if ((ulong)pe - (ulong)start >= (ulong)SPINSZ * sizeof(ulong)) { pe -= SPINSZ; } else { pe = start; }
+```
+The forward guards (`pe + SPINSZ > pe`) are **left as-is**: `pe` increases toward
+`end`, can't overflow the top for ≤4 GB physical addresses, and is clamped by
+`if (pe >= end)`, so they don't hit the UB path. (A >4 GB G5 is a separate,
+already-flagged concern.)
+
+**Verified.** Rebuilt, booted QEMU mac99 256 MB: tests cycle 0→1→2→3→4, the Pass
+and Test percentages advance monotonically and stay ≤100%, `Errors: 0` on good
+RAM. Evidence: `wave5-tests-cycling.png`. (Resolves `port-main_c.md` TO-VERIFY
+#0 and the TO-VERIFY in this report about the verbatim chunk loops.)
+
+Caveat: QEMU reached test #4 in the capture window; the `movinv1` reverse pass
+(tests #2/#3/#4) is directly confirmed. `movinv32`'s reverse (test #6) was not
+independently reached but received the **identical** guard fix and is correct by
+the same reasoning. Worth a glance when a full pass is watched on hardware.

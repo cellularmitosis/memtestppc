@@ -113,11 +113,11 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 
 ### Wave 4 — error + tests — ✅ DONE, QEMU-verified (error table white-on-red)
 | error.c | ✅ | report `port-error_c.md`. error/ad_err1/ad_err2/common_err + all print modes VERBATIM (PRINTMODE_ADDRESSES table byte-for-byte). **v2.00 error.c has NO SMP and NO CPU column** (those are v5.01-isms) — last col is `Chan` (ECC). do_tick IS here: bars/spinner verbatim, rdtsc elapsed-time → PPC timebase. Red row: 0x47 fill + PPC fb_render_cell loop. DMI/ECC/beep/poll_errors commented. Checkpoint stubs: page_of (>>12), insertaddress (return 0); globals p/p1/p2/p0 from main; beepmode owned by init.c. |
-| test.c | ✅ | report `port-test_c.md`. Outer SPINSZ/segment/fwd-rev structure verbatim; each test's x86 asm inner loop commented, upstream-commented plain-C enabled (addr_tst1/bit_fade were already pure C). movinvr seed rdtsc→mftb/mftbu; sleep() rdtsc+clks_msec→Time Base + ofw_get_timebase_freq. block_move had no upstream C — rewrote it: carry-faithful 33-bit `rcll` rotate (NOT the attic's plain rotate), memmove for `rep movsl`, C adjacent-word check. **bit_fade keeps the full ~90-min dwell (STIME=5400) — flagged for the user to maybe shorten.** No cpu-param/calculate_chunk to strip (v2.00 is cpu-free). Fixed a `/* PPC: */`-in-header-comment early-close (same trap init.c hit). TO VERIFY: movinv32 documented-C pattern-math vs the asm's plain roll/ror when sval!=0. |
+| test.c | ✅ | **Wave-5 found+FIXED a reverse-pass spin**: the `pe - SPINSZ < pe` underflow guard (movinv1 + movinv32) relied on pointer-underflow wraparound (UB); gcc -O1 folded it true → infinite `do_tick` on any segment whose start < SPINSZ (our low 8 MB seg). Replaced with an underflow-safe byte-distance check `(ulong)pe - (ulong)start >= SPINSZ*sizeof(ulong)`. Tests now cycle 0→1→2→3→4 with sane %s + Errors:0 (`wave5-tests-cycling.png`). report `port-test_c.md` (+ fix note). Outer SPINSZ/segment/fwd-rev structure verbatim; each test's x86 asm inner loop commented, upstream-commented plain-C enabled (addr_tst1/bit_fade were already pure C). movinvr seed rdtsc→mftb/mftbu; sleep() rdtsc+clks_msec→Time Base + ofw_get_timebase_freq. block_move had no upstream C — rewrote it: carry-faithful 33-bit `rcll` rotate (NOT the attic's plain rotate), memmove for `rep movsl`, C adjacent-word check. **bit_fade keeps the full ~90-min dwell (STIME=5400) — flagged for the user to maybe shorten.** No cpu-param/calculate_chunk to strip (v2.00 is cpu-free). Fixed a `/* PPC: */`-in-header-comment early-close (same trap init.c hit). TO VERIFY: movinv32 documented-C pattern-math vs the asm's plain roll/ror when sval!=0. |
 
-### Wave 5 — main
-| main.c | ☐ | tseq, next_test, find_ticks, loop; comment reloc/window/cmdline |
-| reloc.c | ☐ | examine; likely stub (in-place testing) |
+### Wave 5 — main — ✅ DONE, QEMU-verified (tests RUN: bars advance, Errors: 0)
+| main.c | ✅ | report `port-main_c.md`. tseq[] verbatim; do_test + switch(pat) + find_ticks/find_ticks_for_test/compute_segments verbatim. **The one structural change:** x86 self-relocation loop → in-place `for(;;) do_test()` in main() (head.S calls main; do_test returns instead of run_at). windows[] 32-entry PAE table → single flat window {0,0xffffffff} clamped to plim_*; run_at/__run_at/parse_command_line #if 0'd. Flat paging defined here (map_page/mapping/emapping/page_of/paging_off = upstream FLAT==1 branch; init.c's x86 PAE versions stay #if 0'd). adj_mem + insertaddress = Wave-6 stubs. **Default pass runs tests 0-8 only (DEFTESTS=9) — bit_fade (idx 9) NOT run unless selected, so the 90-min dwell does not occur in a normal run.** |
+| reloc.c | 🅿 | report `examine-reloc_c.md`. x86 ELF self-relocation runtime (`_dl_start`, R_386_* relocs, %ebx GOT asm). N/A: PPC head.S calls main() directly, OF maps the ELF at link addr, non-PIC build, no self-reloc. NOT imported into src/ (wouldn't compile on PPC; no caller). |
 
 ### Wave 6 — examine PC-platform files (import → report → classify)
 | controller.c/.h | ☐ | x86 chipset/mem-controller; expect ⛔ |
@@ -180,34 +180,64 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   integration: added `ofw.h` include to test.c; added p/p1/p2/p0 globals to the
   checkpoint; beepmode is owned by init.c (don't redefine). The full engine now
   links (all 11 objects) — only the real main.c test LOOP remains (Wave 5).
+- 2026-05-24: **Wave 5 (main) done and QEMU-verified — the tests RUN in place.**
+  Ported the real v2.00 `main.c` (report `port-main_c.md`), replacing the
+  throwaway stub. **The one structural change:** x86's self-relocation loop
+  (`head.S`→`do_test`, `run_at` re-entry) became an in-place `for(;;) do_test();`
+  in `main()` (PPC head.S already calls `main`); `do_test` `return`s where
+  upstream relocated. The 32-entry PAE `windows[]` collapsed to a single flat
+  window `{0,0xffffffff}` (clamped to `plim_*`); `map_page`/`mapping`/`emapping`/
+  `page_of`/`paging_off` are flat in-place versions defined in main.c (init.c's
+  x86 PAE copies stay `#if 0`'d). `run_at`/`__run_at`/`parse_command_line` `#if
+  0`'d. `adj_mem`+`insertaddress` = Wave-6 stubs. `reloc.c` examined → parked
+  N/A (`examine-reloc_c.md`): x86 ELF self-reloc runtime, no PPC caller, non-PIC
+  build. Builds + links clean (11 objects, only the known GNU-stack/RWX warnings).
+  Booted QEMU mac99 256MB: **the engine runs the test loop over the full claimed
+  range** — "Testing: 8192K - 252M 236M", WallTime advancing, `Errors: 0` on
+  good RAM. Evidence: `wave5-tests-running.png`. Debug-probed `msegs=2 segs=2
+  chunks=8 test_ticks=112` (all correct). **BUT — surfaced a Wave-4 `test.c` bug
+  (see RESUME #1):** the progress %s overflow (Test% climbs past 64000% and
+  grows) because `do_tick()` is called unboundedly inside `movinv1` — test #2
+  (first moving-inversions) never completes, so tests don't cycle and a pass
+  never finishes. `test_ticks`/`chunks` (main.c) are correct, so the spin is in
+  test.c's moving-inversions chunk loop, latent until Wave 5 first drove real
+  memory. Each `do_tick` also does an `ofw_read` (OF call), so the over-call is
+  also why a single test crawls for many minutes under QEMU. **→ Root-caused and
+  FIXED same session (next log entry).**
+- 2026-05-24: **Fixed the `test.c` reverse-pass spin — tests now cycle.**
+  Instrumented per-phase do_tick counters: `FILL=8 FWD=8 REV=74085+` (growing) →
+  the **reverse pass** spins. Segment bounds: `M0=[0x00800000,0x03ffff00]`
+  (8-64 MB), `M1=[0x04800000,0x0fbfff00]` (72-252 MB). Root cause: the reverse
+  underflow guard `if (pe - SPINSZ < pe)` (in `movinv1` and `movinv32`) relied on
+  **pointer-arithmetic underflow wraparound** — when `pe - SPINSZ` goes below
+  address 0 it becomes huge so `< pe` is false and the `else` clamps `pe = start`.
+  That is UB; `powerpc-linux-gnu-gcc 12 -O1` folds `pe - SPINSZ < pe` to
+  always-true, killing the clamp. For seg0 (start = 8 MB < SPINSZ-stride = 32 MB)
+  the reverse walk steps past the bottom, wraps to ~0xFFFFFFFF, and the 32 MB
+  stride **skips over `[0, start]`**, so `pe <= start` is never true → infinite
+  `do_tick`. Fix: underflow-safe byte-distance check
+  `if ((ulong)pe - (ulong)start >= (ulong)SPINSZ * sizeof(ulong))` (both reverse
+  guards; forward guards left as-is — they can't wrap for ≤4 GB addresses and
+  clamp via `pe >= end`). Rebuilt + booted QEMU: tests **cycle** 0→1→2→3→4,
+  Pass% 1→4→7 and Test% advance **monotonically and stay ≤100%**, `Errors: 0`.
+  Evidence: `wave5-tests-cycling.png`. (A full pass is slow under QEMU TCG —
+  test 4 random-pattern is iter=60 — but it progresses; full-pass timing belongs
+  on real hardware.)
 
-## Next steps — RESUME HERE (Waves 0–4 are DONE + QEMU-verified)
+## Next steps — RESUME HERE (Waves 0–5 DONE + QEMU-verified; tests cycle, Errors:0)
 
-State on exit: the whole engine compiles and links (11 objects) and renders the
-boot screen + the white-on-red error table in QEMU. **`src/main.c` is a THROWAWAY
-Wave-4 checkpoint stub** — it defines `v`/`tseq[]`/`p`/`p1`/`p2`/`p0`, stubs
-`find_ticks`/`adj_mem`/`page_of`/`insertaddress`, and injects fake errors to demo
-the table. **It is NOT the port; Wave 5 replaces it with the real main.c.** Real
-hardware (ibookg32/G5) has NOT been tested this session — only QEMU.
+State on exit: the **real ported `main.c` is in place**, the engine compiles,
+links (11 objects), and **runs the full test loop in place over all claimed
+memory** — tests cycle (0→1→2→3→4 observed), progress bars/percentages are sane,
+`Errors: 0` on QEMU's good RAM. The Wave-5 reverse-pass spin is fixed. Real
+hardware (ibookg32/G5) NOT tested yet; a full pass not yet watched to completion
+(QEMU TCG is slow on the heavy tests — do it on hardware).
 
-1. **Wave 5 — port the REAL `main.c`** (#11, replacing the stub) **+ examine
-   `reloc.c`** (#12). main.c brings the real `tseq[]`, the globals (`v`, `bail`,
-   `segs`, `test`, `nticks`, `test_ticks`, `p/p1/p2/p0`), `set_defaults`,
-   `next_test`, `test_setup`, `find_ticks_for_pass`/`find_chunks`/
-   `find_ticks_for_test`, and the **test LOOP** that dispatches `do_test` →
-   the memory tests (`switch(tseq[test].pat)`). Honor the **Wave-5 watch-list**
-   below: comment the x86 reloc/windowing (we test IN-PLACE, no self-reloc), the
-   paging-family call sites (`map_page`/`mapping`/`emapping`/`page_of`/
-   `paging_off`), the cmdline parser (`serial_console_setup` @ main.c:~164), SMP
-   scheduling; keep an `adj_mem` stub until config.c (Wave 6). `reloc.c` → almost
-   certainly stub (in-place testing doesn't relocate). Then the **big checkpoint**:
-   boot and watch tests actually RUN — progress bars advancing, tests cycling,
-   `Errors: 0` on QEMU's good RAM.
-2. **Wave 6 — examine PC-platform files:** #13 `config.c` (surface the neutral
+1. **Wave 6 — examine PC-platform files:** #13 `config.c` (surface the neutral
    subset per Decision #6), #14 `controller/dmi/spd/pci/extra/patn/linuxbios/msr/
    io/serial/stdin/bootsect/setup/*.lds/mt86+_loader` (import, report, classify —
    mostly ⛔ N/A).
-3. **Finish-up:** real-hardware test on ibookg32 (partition boot
+2. **Finish-up:** real-hardware test on ibookg32 (partition boot
    `boot hd:5,memtestppc.elf` via the uranium hop) + G5 speed spot-check; resolve
    bit_fade `STIME` (90 min) + title/version question; update `README.md` +
    `PLAN.md` (held this session — src/ is mid-rewrite, not a runnable release yet);
