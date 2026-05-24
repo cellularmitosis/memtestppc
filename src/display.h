@@ -32,8 +32,10 @@ extern unsigned char vga_buf[SCREEN_HEIGHT * SCREEN_WIDTH * 2];
 /* Standard VGA 16-color palette (RGB888, 0x00RRGGBB). */
 extern const unsigned long vga_palette[16];
 
-/* Initialize: discover the OF framebuffer, set palette, clear screen. <0 on fail. */
-int display_init(void);
+/* Bring up the OF framebuffer hardware: discover it, set the palette, black the
+ * physical screen. <0 on failure. (Named fb_init, not display_init, because the
+ * ported init.c owns the upstream display_init() that draws the TUI content.) */
+int fb_init(void);
 
 /* Blit one text cell (char+attr from vga_buf) to the framebuffer. */
 void fb_render_cell(int y, int x);

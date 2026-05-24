@@ -1,16 +1,17 @@
 /*
- * WAVE 2 CHECKPOINT STUB — throwaway. Replaced by the real ported memtest86+
+ * WAVE 3 CHECKPOINT STUB — throwaway. Replaced by the real ported memtest86+
  * v2.00 main.c in Wave 5.
  *
- * Purpose: prove the Wave-2 rendering core end to end — that the VERBATIM
- * upstream print primitives (cprint/dprint/hprint/aprint/footer in lib.c) reach
- * the framebuffer through the unchanged path cprint -> tty_print_line
- * (screen_buffer.c) -> ttyprint (lib.c, the one rewritten leaf) -> fb_render_cell
- * (display.c). Also exercises the attr-poke -> explicit fb_render_cell path used
- * by init.c/error.c for the title/footer bars.
+ * Purpose: prove init.c (verbatim TUI header + PPC CPU/cache/clock detection)
+ * and memsize.c (OF /memory discovery + 1MB-chunk claim) render a real boot
+ * screen. init() does it all — it calls mem_size() itself (init.c:223), zeroes
+ * tseq[].errors, and calls find_ticks() — so main() just calls init().
  *
- * Defines `v` (struct vars) here because lib.c references it; the real main.c
- * owns this global in Wave 5.
+ * Provides globals/functions owned by later waves so the checkpoint links:
+ *   v          - struct vars (real def comes with main.c, Wave 5)
+ *   tseq[]     - the test table (owned by main.c, Wave 5) — real v2.00 entries
+ *   find_ticks - owned by main.c (Wave 5); stubbed (tick bars stay 0)
+ *   adj_mem    - owned by config.c (Wave 6); stubbed (mem_size calls it)
  */
 
 #include "test.h"
@@ -20,42 +21,27 @@
 struct vars variables;
 struct vars * const v = &variables;
 
+/* Real v2.00 test table {cache, pat, iter, ticks, errors, msg}. */
+struct tseq tseq[] = {
+    {0,  5,  3,    0, 0, "[Address test, walking ones, uncached]"},
+    {1,  6,  3,    2, 0, "[Address test, own address]           "},
+    {1,  0,  3,   14, 0, "[Moving inversions, ones & zeros]     "},
+    {1,  1,  2,   80, 0, "[Moving inversions, 8 bit pattern]    "},
+    {1, 10, 60,  300, 0, "[Moving inversions, random pattern]   "},
+    {1,  7, 64,   66, 0, "[Block move, 64 moves]                "},
+    {1,  2,  2,  320, 0, "[Moving inversions, 32 bit pattern]   "},
+    {1,  9, 40,  120, 0, "[Random number sequence]              "},
+    {1,  3,  4, 1920, 0, "[Modulo 20, random pattern]           "},
+    {1,  8,  1,    2, 0, "[Bit fade test, 90 min, 2 patterns]   "},
+    {0,  0,  0,    0, 0, 0}
+};
+
+void find_ticks(void) { /* Wave-5 stub: leave tick counters at 0 */ }
+void adj_mem(void) { /* Wave-6 stub: mem_size() already set selected_pages */ }
+
 int main(void)
 {
-    int i;
-
-    if (display_init() < 0) {
-        ofw_puts("display_init failed: no framebuffer found\r\n");
-        ofw_exit();
-        for (;;) ;
-    }
-
-    /* Green title bar: poke attr 0x20 across the row, render it (attr-only
-     * change needs an explicit render), then cprint the title over it. */
-    for (i = 0; i < SCREEN_WIDTH; i++)
-        vga_buf[(0 * SCREEN_WIDTH + i) * 2 + 1] = 0x20;
-    for (i = 0; i < SCREEN_WIDTH; i++)
-        fb_render_cell(0, i);
-    cprint(0, 2, "memtestppc+ : Wave 2 lib.c render-path check");
-
-    /* The actual proof: verbatim cprint/dprint/hprint/aprint via ttyprint. */
-    cprint(2, 2, "cprint -> tty_print_line -> ttyprint -> fb_render_cell:");
-    cprint(3, 4, "If you can read this, the VERBATIM print path works.");
-
-    cprint(5, 2, "dprint 12345 =");
-    dprint(5, 18, 12345, 5, 0);
-    cprint(6, 2, "hprint 0xdeadbeef =");
-    hprint(6, 22, 0xdeadbeef);
-    cprint(7, 2, "aprint 0x4000 pages =");
-    aprint(7, 24, 0x4000);
-
-    /* Reverse-video footer bar (attr 0x71) + the verbatim v2.00 footer() text. */
-    for (i = 0; i < SCREEN_WIDTH; i++)
-        vga_buf[(24 * SCREEN_WIDTH + i) * 2 + 1] = 0x71;
-    for (i = 0; i < SCREEN_WIDTH; i++)
-        fb_render_cell(24, i);
-    footer();
-
+    init();          /* fb_init + verbatim TUI + PPC cpu/cache + mem_size() */
     for (;;) ;
     return 0;
 }

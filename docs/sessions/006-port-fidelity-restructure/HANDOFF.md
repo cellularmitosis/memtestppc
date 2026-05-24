@@ -107,9 +107,9 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
 | lib.c | ✅ | report `port-lib_c.md`. ttyprint→fb_render_cell loop (the one key edit); print/str/mem kept verbatim; check_input→OF stdin poll (ESC→ofw_reset); set_cache PPC stub (uncached-test TO-VERIFY); inter/get_key/getval/ser_map/serial_* commented; serial_echo_init stub keeps clear_screen_buf(). Caller audit: clean for Waves 2-5; Wave-5 main.c must comment the serial_console_setup(cmdline) call. |
 | random.c | ✅ | report `port-random_c.md`. Byte-verbatim MWC RNG, pure C; seeding is at call sites (Wave 4/5). Minor: test.h declares `ulong rand()` vs random.c's `unsigned int` — ABI-identical on ILP32 BE; kept standalone to avoid redecl. |
 
-### Wave 3 — screen + detection
-| init.c | ☐ | header draw verbatim (Memtestppc); PPC cpu/cache/mem |
-| memsize.c | ☐ | mostly replaced by OF discovery; examine |
+### Wave 3 — screen + detection — ✅ DONE, QEMU-verified (real boot screen)
+| init.c | ✅ | report `port-init_c.md`. Verbatim v2.00 TUI; title `Memtest86`→`Memtestppc` (+ moved col15→16); CPU id via `mfpvr`+`ppc_cpu_names[]`, clock/cache from OF /cpus props; x86 cpuid/cpuspeed/memspeed/PAE-paging/chipset/DMI/SPD/pci/floppy all commented; `display_init()` calls `fb_init()` first; `display_refresh()` added (PPC) for attr-only cells. Compile bug found+fixed by lead: a comment containing `*/` (`st_*/end_*`) closed early. |
+| memsize.c | ✅ | report `port-memsize_c.md`. `mem_size()` skeleton + post-proc kept; body→OF `/memory` reg + `ofw_claim` 1MB chunks (prints "OFW Map"). Sets pmap/msegs/test_pages/selected_pages/reserved_pages/plim_* (all 4K-page units). Skips low 8MB. |
 
 ### Wave 4 — error + tests
 | error.c | ☐ | common_err + print modes + error table; comment SMP/DMI/ECC |
@@ -162,6 +162,14 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
     command — `-f` matches the full cmdline, including the ssh shell *running the
     pkill* (its cmdline contains the string), so it kills its own session →
     exit 255. Use `pkill -9 -x qemu-system-ppc` (match process name, not cmdline).
+- 2026-05-24: **Wave 3 (screen + detection) done and QEMU-verified.** Two
+  subagents ported `init.c` + `memsize.c`. Renamed backend `display_init→fb_init`
+  so init.c keeps upstream `display_init`. After fixing a comment-nesting compile
+  bug in init.c, the ISO boots to a faithful v2.00 boot screen with LIVE PPC data:
+  `PowerPC 7400 (G4) 900 MHz`, L1 32K / L2 256K, Memory 236M, RsvdMem 20M, MemMap
+  "OFW Map" — recognizably the memtest86+ v2.00 TUI. Evidence:
+  `wave3-boot-screen.png`. Wave-5 watch-list below captures the loose ends
+  (paging-family call sites, adj_mem stub, title/version question).
 
 ## Next steps
 1. **Wave 2:** fan out subagents — `screen_buffer.{c,h}` (#4), `lib.c` (#5, the
@@ -194,10 +202,33 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   whole x86 interrupt path (N/A on PPC/OF). `SCREEN_END_ADR` is not provided; add
   to display.h only if a consumer appears.
 
+## Wave-5 (main.c) watch-list (surfaced porting init.c/memsize.c)
+- **Paging family `#if 0`'d in init.c but still called by upstream main.c:**
+  `map_page`, `mapping`, `emapping`, `page_of`, `paging_off` are declared in
+  test.h and used by v2.00 main.c's windowing. Single-CPU in-place testing
+  doesn't relocate/window, so the Wave-5 main.c port must comment those call
+  sites (or provide flat-mapping stubs) or they're undefined at link.
+- **`adj_mem()` lives in config.c (Wave 6)** but `mem_size()` calls it. main.c
+  (Wave 5) builds before config.c, so it needs an `adj_mem()` stub (no-op is
+  safe — mem_size already set `selected_pages`) until config.c lands. The Wave-3
+  checkpoint stub provided one.
+- **`find_ticks()`, `tseq[]`, `v`** are owned by main.c — they materialize in
+  Wave 5 (the checkpoint stub provided stand-ins).
+- **Title spacing / version string (OPEN, for the user):** title currently
+  renders `Memtestppc+v2.00` (the `+` is cramped against the version because
+  "Memtestppc" is 1 char wider than "Memtest86" and TITLE_WIDTH=28). Decide:
+  (a) keep `v2.00` vs use the memtestppc+ project version; (b) whether to drop a
+  leading space to restore `Memtestppc+ v2.00` spacing. Cosmetic; in init.c title.
+- **G5 caveat:** memsize.c's `/memory reg` walk assumes 1-cell addr/size (true on
+  G3/G4/QEMU); a G5 with `#address-cells=2` needs a stride fix. Revisit for G5.
+
 ## Substrate contract (for downstream waves — do not break)
 - `vga_buf[]` (in `display.c`) is `SCREEN_ADR`: 80×25×2 char+attr.
 - `display.c` exports `void fb_render_cell(int y, int x)` (reads vga_buf[y][x],
-  blits the glyph) and `int display_init(void)` / `void display_refresh(void)`.
+  blits the glyph), `int fb_init(void)` (OF framebuffer hardware bring-up), and
+  `void display_refresh(void)`. **Renamed display_init→fb_init in Wave 3** so the
+  ported `init.c` keeps its upstream `display_init()` (TUI content draw). init.c's
+  `display_init()` calls `fb_init()` first.
 - Wave-2 `lib.c`: keep `cprint`/`scroll`/etc. verbatim; rewrite **only** `ttyprint`
   to loop `fb_render_cell` over its (y,x,text) run; stub `serial_echo_*`.
 - **Attr-only changes need an explicit render.** `cprint` routes through

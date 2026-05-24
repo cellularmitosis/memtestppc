@@ -196,7 +196,7 @@ void fb_render_cell(int y, int x)
     }
 }
 
-int display_init(void)
+int fb_init(void)
 {
     struct ofw_fb_info info;
     int i;
