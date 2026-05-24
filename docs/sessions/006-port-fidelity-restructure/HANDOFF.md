@@ -181,15 +181,41 @@ Status: ☐ todo · ◐ in progress · ✅ ported+report · 🅿 examined→park
   checkpoint; beepmode is owned by init.c (don't redefine). The full engine now
   links (all 11 objects) — only the real main.c test LOOP remains (Wave 5).
 
-## Next steps
-1. **Wave 2:** fan out subagents — `screen_buffer.{c,h}` (#4), `lib.c` (#5, the
-   key ttyprint→fb_render_cell wiring + comment the x86 interrupt/`inter`/serial/
-   keyboard/cache leaf), `random.c` (#6). Then build-checkpoint (these + the
-   substrate should link a small image, perhaps with a tiny driver, or wait for
-   Wave 3-5 to get a full main).
-2. Then Wave 3 (`init.c`, `memsize.c`), Wave 4 (`error.c`, `test.c`), Wave 5
-   (`main.c`, `reloc.c`), Wave 6 (examine PC-platform files).
-3. Keep this file's file-status table + progress log + "v2.00 facts" current.
+## Next steps — RESUME HERE (Waves 0–4 are DONE + QEMU-verified)
+
+State on exit: the whole engine compiles and links (11 objects) and renders the
+boot screen + the white-on-red error table in QEMU. **`src/main.c` is a THROWAWAY
+Wave-4 checkpoint stub** — it defines `v`/`tseq[]`/`p`/`p1`/`p2`/`p0`, stubs
+`find_ticks`/`adj_mem`/`page_of`/`insertaddress`, and injects fake errors to demo
+the table. **It is NOT the port; Wave 5 replaces it with the real main.c.** Real
+hardware (ibookg32/G5) has NOT been tested this session — only QEMU.
+
+1. **Wave 5 — port the REAL `main.c`** (#11, replacing the stub) **+ examine
+   `reloc.c`** (#12). main.c brings the real `tseq[]`, the globals (`v`, `bail`,
+   `segs`, `test`, `nticks`, `test_ticks`, `p/p1/p2/p0`), `set_defaults`,
+   `next_test`, `test_setup`, `find_ticks_for_pass`/`find_chunks`/
+   `find_ticks_for_test`, and the **test LOOP** that dispatches `do_test` →
+   the memory tests (`switch(tseq[test].pat)`). Honor the **Wave-5 watch-list**
+   below: comment the x86 reloc/windowing (we test IN-PLACE, no self-reloc), the
+   paging-family call sites (`map_page`/`mapping`/`emapping`/`page_of`/
+   `paging_off`), the cmdline parser (`serial_console_setup` @ main.c:~164), SMP
+   scheduling; keep an `adj_mem` stub until config.c (Wave 6). `reloc.c` → almost
+   certainly stub (in-place testing doesn't relocate). Then the **big checkpoint**:
+   boot and watch tests actually RUN — progress bars advancing, tests cycling,
+   `Errors: 0` on QEMU's good RAM.
+2. **Wave 6 — examine PC-platform files:** #13 `config.c` (surface the neutral
+   subset per Decision #6), #14 `controller/dmi/spd/pci/extra/patn/linuxbios/msr/
+   io/serial/stdin/bootsect/setup/*.lds/mt86+_loader` (import, report, classify —
+   mostly ⛔ N/A).
+3. **Finish-up:** real-hardware test on ibookg32 (partition boot
+   `boot hd:5,memtestppc.elf` via the uranium hop) + G5 speed spot-check; resolve
+   bit_fade `STIME` (90 min) + title/version question; update `README.md` +
+   `PLAN.md` (held this session — src/ is mid-rewrite, not a runnable release yet);
+   commit; version decision.
+
+How to build/test + the `pkill -x` gotcha: see the progress log above and
+PORTING-GUIDE §7. Per-file porting decisions: the `port-*.md` reports in this dir.
+Keep this file's file-status table + progress log + watch-lists current.
 
 ## v2.00 facts that bite later waves (learned porting the headers — NOT v5.01!)
 - **Test routines are already cpu-free** in v2.00 — no trailing `int cpu` arg. No
