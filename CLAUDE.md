@@ -25,7 +25,7 @@ docs/
   convos/          — raw conversation transcripts (managed externally; ignore).
 src/               — the port itself: head.S, ofw.{c,h}, display.{c,h},
                      font_vga.h, memtest.h, test.c, main.c, linker.ld.
-cd/                — CHRP bootinfo.txt for the bootable ISO.
+cd/                — boot script (ofboot.b) + HFS type map (hfs.map) for the ISO.
 ref/               — memtest86+ v5.01 source + reference screenshots/photos.
 scripts/           — helpers.
 test_minimal/      — throwaway OF-boot-protocol probes (from the session-002
@@ -148,6 +148,11 @@ session's HANDOFF — that's what the user reviews on return.
    no ELF linker. Build with `powerpc-linux-gnu-gcc` on Linux. The deliverable is
    the CD image — build-from-source on a real Tiger Mac is *not* a supported path.
 
-6. **No physical CD has been burned yet.** "CD boot" everywhere means a QEMU
-   `-cdrom` ISO; the only real-hardware testing so far is partition boot on
-   ibookg32. Burning + booting a physical disc is still an open to-do.
+6. **Physical CD boot works on real Apple OF (since session 005).** A burned
+   CD-R boots on the iBook G3. Real Apple New World OF needs more than QEMU's
+   OpenBIOS: build the ISO with `genisoimage -hfs -part -hfs-bless` (DDM + Apple
+   Partition Map + an Apple_HFS slice with a blessed folder), the boot file must
+   be HFS type `tbxi` (via `cd/hfs.map`), and `cd/ofboot.b` needs a
+   `<COMPATIBLE>` block listing the machine family (incl. `MacRISC2` for the
+   iBook G3). `xorrisofs -hfsplus` booted under OpenBIOS but gave a blinking
+   folder on real hardware — see [`docs/sessions/005-release-tweaks/HANDOFF.md`].

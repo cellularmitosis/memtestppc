@@ -196,7 +196,17 @@ booted finnix recovery CDs on real PowerBooks).
 **Second burn:** ISO is 591 sectors (no padding needed this time). md5
 `cd0c72c892fe659cdb2e8599e2d84239`. Burned with
 `sudo wodim dev=/dev/sr0 -v -dao -eject speed=8 memtestppc.iso` — clean, fixated,
-ejected. Awaiting iBook test.
+ejected.
+
+**RESULT: the burned CD boots on the real iBook G3.** ✅ First-ever physical-CD
+boot on real Apple hardware. The genisoimage HFS-hybrid + blessed tbxi +
+`<COMPATIBLE>` recipe is the working one. (Exact boot method — hold-C vs
+`boot cd:,\\:tbxi` — to be confirmed with the user; both are the bless path.)
+README + CLAUDE.md (invariant #6) updated to reflect this.
+
+**Release artifacts** copied to `artifacts/`: `memtestppc.iso` (the bootable
+image, md5 `cd0c72c8…`), `memtest` (the ELF), and `memtestppc-running.png` (a
+4-minute QEMU run for the landing page — Pass 18%, Test #07, 0 errors).
 
 ## Hardware-test procedure (next — task #8, user-driven)
 
